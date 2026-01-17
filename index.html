@@ -1,1513 +1,687 @@
 <!DOCTYPE html>
 <html lang="it">
 
-    <head>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-        <title>Travel Hub</title>
-        <link rel="icon" href="https://www.svgrepo.com/show/317398/travel.svg" type="image/svg+xml">
-        <link rel="manifest" href="manifest.json">
-        <meta name="theme-color" content="#0f172a">
-        <link rel="apple-touch-icon" href="icon-192.png">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Travel Hub</title>
+    
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#0f172a">
+    <meta name="description" content="Organizza i tuoi viaggi di gruppo con Travel Hub: budget, mappe e itinerari condivisi.">
+    <link rel="apple-touch-icon" href="icon-192.png">
+    <link rel="icon" href="icon-192.png" type="image/png">
 
-        <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
-        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
-        <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
+    <script src="https://cdn.tailwindcss.com"></script>
 
-        <script src="https://cdn.tailwindcss.com"></script>
+    <script defer src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+    <script defer src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+    <script defer src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+    <script defer src="https://www.gstatic.com/firebasejs/9.23.0/firebase-storage-compat.js"></script>
 
-        <script defer src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
-        <script defer src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
-        <script defer src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
-        <script defer src="https://www.gstatic.com/firebasejs/9.23.0/firebase-storage-compat.js"></script>
-
-        <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
-
-        <script>
-            tailwind.config = {
-                theme: {
-                    extend: {
-                        colors: {
-                            primary: '#0f172a',
-                            secondary: '#334155',
-                            accent: '#3b82f6',
-                            success: '#10b981',
-                            danger: '#ef4444',
-                            warning: '#f59e0b',
-                            info: '#6366f1',
-                            surface: '#ffffff',
-                            background: '#e2e8f0',
-                            chatMe: '#dcf8c6',
-                            chatOthers: '#ffffff'
-                        },
-                        fontFamily: {
-                            sans: ['Plus Jakarta Sans', 'sans-serif']
-                        }
-                    }
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#0f172a', secondary: '#334155', accent: '#3b82f6',
+                        success: '#10b981', danger: '#ef4444', warning: '#f59e0b', info: '#6366f1',
+                        surface: '#ffffff', background: '#e2e8f0',
+                        chatMe: '#dcf8c6', chatOthers: '#ffffff'
+                    },
+                    fontFamily: { sans: ['Plus Jakarta Sans', 'sans-serif'] }
                 }
             }
-        </script>
-        <style>
-            .no-scrollbar::-webkit-scrollbar {
-                display: none;
-            }
+        }
+    </script>
+    <style>
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+        .loader { border: 3px solid #e2e8f0; border-top: 3px solid #3b82f6; border-radius: 50%; width: 24px; height: 24px; animation: spin 1s linear infinite; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        #map-container { height: 100%; width: 100%; z-index: 1; border-radius: 1rem; overflow: hidden; }
+        .leaflet-pane { z-index: 10 !important; } 
+        .scroll-nav { overflow-x: auto; white-space: nowrap; -webkit-overflow-scrolling: touch; }
+        .chat-bg { background-image: url('https://user-images.githubusercontent.com/15075759/28719144-86dc0f70-73b1-11e7-911d-60d70fcded21.png'); background-repeat: repeat; opacity: 0.1; position: absolute; inset: 0; pointer-events: none; }
+        .fade-in { animation: fadeIn 0.3s ease-in; }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+    </style>
+</head>
 
-            .no-scrollbar {
-                -ms-overflow-style: none;
-                scrollbar-width: none;
-            }
+<body class="bg-background text-secondary font-sans h-screen overflow-hidden selection:bg-accent selection:text-white">
 
-            .loader {
-                border: 3px solid #e2e8f0;
-                border-top: 3px solid #3b82f6;
-                border-radius: 50%;
-                width: 24px;
-                height: 24px;
-                animation: spin 1s linear infinite;
-            }
-
-            @keyframes spin {
-                0% {
-                    transform: rotate(0deg);
-                }
-
-                100% {
-                    transform: rotate(360deg);
-                }
-            }
-
-            #map-container {
-                height: 100%;
-                width: 100%;
-                z-index: 1;
-                border-radius: 1rem;
-                overflow: hidden;
-            }
-
-            .leaflet-pane {
-                z-index: 10 !important;
-            }
-
-            .scroll-nav {
-                overflow-x: auto;
-                white-space: nowrap;
-                -webkit-overflow-scrolling: touch;
-            }
-
-            .chat-bg {
-                background-image: url('https://user-images.githubusercontent.com/15075759/28719144-86dc0f70-73b1-11e7-911d-60d70fcded21.png');
-                background-repeat: repeat;
-                opacity: 0.1;
-                position: absolute;
-                inset: 0;
-                pointer-events: none;
-            }
-        </style>
-    </head>
-
-    <body class="bg-background text-secondary font-sans h-screen overflow-hidden selection:bg-accent selection:text-white">
-        <div id="install-banner" class="hidden fixed top-0 left-0 w-full z-[100] p-4 animate-bounce">
-    <div class="bg-primary text-white p-4 rounded-2xl shadow-2xl border border-accent/30 flex items-center justify-between">
-        <div class="flex items-center gap-3">
-            <div class="h-10 w-10 bg-white/10 rounded-xl flex items-center justify-center text-xl">
-                <i class="fa-solid fa-cloud-arrow-down text-accent"></i>
+    <div id="install-banner" class="hidden fixed top-0 left-0 w-full z-[100] p-4 animate-bounce">
+        <div class="bg-primary text-white p-4 rounded-2xl shadow-2xl border border-accent/30 flex items-center justify-between">
+            <div class="flex items-center gap-3">
+                <div class="h-10 w-10 bg-white/10 rounded-xl flex items-center justify-center text-xl"><i class="fa-solid fa-cloud-arrow-down text-accent"></i></div>
+                <div>
+                    <p class="text-xs font-bold leading-tight">Installa Travel Hub</p>
+                    <p class="text-[10px] text-slate-400">Accedi più velocemente ai tuoi viaggi</p>
+                </div>
             </div>
-            <div>
-                <p class="text-xs font-bold leading-tight">Installa Travel Hub</p>
-                <p class="text-[10px] text-slate-400">Accedi più velocemente ai tuoi viaggi</p>
+            <div class="flex gap-2">
+                <button onclick="closeInstallBanner()" class="px-3 py-2 text-[10px] font-bold text-slate-400">Dopo</button>
+                <button onclick="executeInstall()" class="bg-accent px-4 py-2 rounded-lg text-[10px] font-bold shadow-lg shadow-blue-500/20">INSTALLA</button>
             </div>
-        </div>
-        <div class="flex gap-2">
-            <button onclick="closeInstallBanner()" class="px-3 py-2 text-[10px] font-bold text-slate-400">Dopo</button>
-            <button onclick="executeInstall()" class="bg-accent px-4 py-2 rounded-lg text-[10px] font-bold shadow-lg shadow-blue-500/20">INSTALLA</button>
         </div>
     </div>
-</div>
 
-        <section id="auth-screen" class="h-full w-full flex items-center justify-center p-4 bg-slate-900 absolute inset-0 z-50">
-            <div class="bg-white w-full max-w-md p-8 rounded-[32px] shadow-2xl relative overflow-hidden">
-                <div class="absolute top-0 right-0 w-32 h-32 bg-accent opacity-10 rounded-full -mr-10 -mt-10"></div>
-                <div class="text-center mb-8">
-                    <div class="h-14 w-14 bg-accent text-white rounded-2xl flex items-center justify-center text-2xl mx-auto mb-4 shadow-lg shadow-blue-500/30"><i class="fa-solid fa-plane-departure"></i></div>
-                    <h1 class="text-2xl font-black text-primary">Travel Hub</h1>
-                    <p class="text-slate-400 text-sm">Organizza i tuoi viaggi di gruppo</p>
-                </div>
-
-                <button onclick="loginGoogle()" class="w-full py-3 bg-white border border-slate-200 text-slate-700 font-bold rounded-xl shadow-sm hover:bg-slate-50 transition flex justify-center items-center gap-2 mb-4">
-                    <i class="fa-brands fa-google text-red-500"></i> Accedi con Google
-                </button>
-
-                <div class="relative flex py-2 items-center mb-4">
-                    <div class="flex-grow border-t border-slate-200"></div><span class="flex-shrink mx-4 text-slate-300 text-xs font-bold uppercase">Oppure email</span>
-                    <div class="flex-grow border-t border-slate-200"></div>
-                </div>
-
-                <form id="auth-form" onsubmit="handleEmailAuth(event)">
-                    <div class="space-y-3">
-                        <div id="name-field-container" class="hidden">
-                            <input type="text" id="fullname" class="w-full p-4 bg-slate-50 rounded-xl border border-slate-200 outline-none text-sm" placeholder="Nome e Cognome">
-                        </div>
-                        <input type="email" id="email" required class="w-full p-4 bg-slate-50 rounded-xl border border-slate-200 outline-none text-sm" placeholder="nome@email.com">
-                        <input type="password" id="password" required class="w-full p-4 bg-slate-50 rounded-xl border border-slate-200 outline-none text-sm" placeholder="Password">
-                        <button type="submit" id="auth-btn" class="w-full py-4 bg-primary text-white font-bold rounded-xl shadow-xl hover:bg-slate-800 transition transform active:scale-95 flex justify-center items-center gap-2"><span id="auth-btn-text">Accedi</span></button>
-                    </div>
-                </form>
-
-                <p class="text-center mt-6 text-sm text-slate-500"><span id="auth-toggle-text">Non hai un account?</span> <button onclick="toggleAuthMode()" class="text-accent font-bold hover:underline" id="auth-toggle-btn">Registrati</button></p>
-                <div id="auth-error" class="hidden mt-4 p-3 bg-red-50 text-red-500 text-xs rounded-lg text-center font-bold"></div>
+    <section id="auth-screen" class="h-full w-full flex items-center justify-center p-4 bg-slate-900 absolute inset-0 z-50">
+        <div class="bg-white w-full max-w-md p-8 rounded-[32px] shadow-2xl relative overflow-hidden">
+            <div class="absolute top-0 right-0 w-32 h-32 bg-accent opacity-10 rounded-full -mr-10 -mt-10"></div>
+            <div class="text-center mb-8">
+                <div class="h-14 w-14 bg-accent text-white rounded-2xl flex items-center justify-center text-2xl mx-auto mb-4 shadow-lg shadow-blue-500/30"><i class="fa-solid fa-plane-departure"></i></div>
+                <h1 class="text-2xl font-black text-primary">Travel Hub</h1>
+                <p class="text-slate-400 text-sm">Organizza i tuoi viaggi di gruppo</p>
             </div>
-        </section>
+            
+            <button onclick="loginGoogle()" class="w-full py-3 bg-white border border-slate-200 text-slate-700 font-bold rounded-xl shadow-sm hover:bg-slate-50 transition flex justify-center items-center gap-2 mb-4">
+                <i class="fa-brands fa-google text-red-500"></i> Accedi con Google
+            </button>
+            
+            <div class="relative flex py-2 items-center mb-4">
+                <div class="flex-grow border-t border-slate-200"></div><span class="flex-shrink mx-4 text-slate-300 text-xs font-bold uppercase">Oppure email</span><div class="flex-grow border-t border-slate-200"></div>
+            </div>
+            
+            <form id="auth-form" onsubmit="handleEmailAuth(event)">
+                <div class="space-y-3">
+                    <div id="name-field-container" class="hidden">
+                        <input type="text" id="fullname" class="w-full p-4 bg-slate-50 rounded-xl border border-slate-200 outline-none text-sm" placeholder="Nome e Cognome">
+                    </div>
+                    <input type="email" id="email" required class="w-full p-4 bg-slate-50 rounded-xl border border-slate-200 outline-none text-sm" placeholder="nome@email.com">
+                    <input type="password" id="password" required class="w-full p-4 bg-slate-50 rounded-xl border border-slate-200 outline-none text-sm" placeholder="Password">
+                    <button type="submit" id="auth-btn" class="w-full py-4 bg-primary text-white font-bold rounded-xl shadow-xl hover:bg-slate-800 transition transform active:scale-95 flex justify-center items-center gap-2"><span id="auth-btn-text">Accedi</span></button>
+                </div>
+            </form>
+            
+            <p class="text-center mt-6 text-sm text-slate-500"><span id="auth-toggle-text">Non hai un account?</span> <button onclick="toggleAuthMode()" class="text-accent font-bold hover:underline" id="auth-toggle-btn">Registrati</button></p>
+            <div id="auth-error" class="hidden mt-4 p-3 bg-red-50 text-red-500 text-xs rounded-lg text-center font-bold"></div>
+        </div>
+    </section>
 
-        <section id="dashboard-screen" class="h-full w-full flex flex-col hidden absolute inset-0 z-40 bg-slate-50">
-            <header class="px-6 py-6 bg-white border-b border-slate-200 flex justify-between items-center shadow-sm z-10">
-                <div>
-                    <h1 class="text-2xl font-black text-primary">I Tuoi Viaggi</h1>
-                    <p class="text-slate-500 text-xs font-bold bg-slate-100 inline-block px-2 py-1 rounded-md mt-1" id="user-name-display">...</p>
+    <section id="dashboard-screen" class="h-full w-full flex flex-col hidden absolute inset-0 z-40 bg-slate-50">
+        <header class="px-6 py-6 bg-white border-b border-slate-200 flex justify-between items-center shadow-sm z-10">
+            <div>
+                <h1 class="text-2xl font-black text-primary">I Tuoi Viaggi</h1>
+                <p class="text-slate-500 text-xs font-bold bg-slate-100 inline-block px-2 py-1 rounded-md mt-1" id="user-name-display">...</p>
+            </div>
+            <button onclick="openUserProfile()" class="h-10 w-10 bg-slate-100 rounded-full flex items-center justify-center text-slate-500 hover:bg-slate-200 hover:text-primary transition shadow-sm"><i class="fa-solid fa-user"></i></button>
+        </header>
+        <main class="flex-1 overflow-y-auto p-6 relative">
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-8">
+                <button onclick="openModal('modal-create-trip')" class="bg-primary text-white p-6 rounded-2xl shadow-lg flex flex-col items-center justify-center gap-3 hover:bg-slate-800 transition group active:scale-95">
+                    <div class="h-12 w-12 bg-white/10 rounded-full flex items-center justify-center group-hover:scale-110 transition text-xl"><i class="fa-solid fa-plus"></i></div><span class="font-bold">Crea Nuovo Viaggio</span>
+                </button>
+                <button onclick="openModal('modal-join-trip')" class="bg-white text-primary border border-slate-200 p-6 rounded-2xl shadow-sm flex flex-col items-center justify-center gap-3 hover:bg-slate-50 transition group active:scale-95">
+                    <div class="h-12 w-12 bg-accent/10 text-accent rounded-full flex items-center justify-center group-hover:scale-110 transition text-xl"><i class="fa-solid fa-ticket"></i></div><span class="font-bold">Unisciti con Codice</span>
+                </button>
+            </div>
+            <div class="flex items-center gap-2 mb-4"><i class="fa-solid fa-layer-group text-slate-400"></i><h3 class="font-bold text-slate-500 text-xs uppercase tracking-widest">Elenco Viaggi</h3></div>
+            <div id="trips-list" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"></div>
+        </main>
+    </section>
+
+    <section id="trip-app-screen" class="h-full w-full flex flex-col hidden absolute inset-0 z-30 bg-slate-50">
+        <header class="bg-surface px-4 py-3 border-b border-slate-200 shadow-sm shrink-0 z-20 bg-white">
+            <div class="flex justify-between items-start mb-3">
+                <div class="flex items-center gap-3">
+                    <button onclick="exitTrip()" class="h-10 w-10 rounded-xl bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-500 hover:bg-slate-200 transition"><i class="fa-solid fa-arrow-left"></i></button>
+                    <div>
+                        <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Travel Hub</p>
+                        <h1 class="text-xl font-black text-primary leading-none truncate max-w-[150px] sm:max-w-xs cursor-pointer hover:text-accent" id="current-trip-title" onclick="openTripSettings()">...</h1>
+                    </div>
                 </div>
-                <button onclick="openUserProfile()" class="h-10 w-10 bg-slate-100 rounded-full flex items-center justify-center text-slate-500 hover:bg-slate-200 hover:text-primary transition shadow-sm"><i class="fa-solid fa-user"></i></button>
-            </header>
-            <main class="flex-1 overflow-y-auto p-6 relative">
-                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-8">
-                    <button onclick="openModal('modal-create-trip')" class="bg-primary text-white p-6 rounded-2xl shadow-lg flex flex-col items-center justify-center gap-3 hover:bg-slate-800 transition group active:scale-95">
-                        <div class="h-12 w-12 bg-white/10 rounded-full flex items-center justify-center group-hover:scale-110 transition text-xl"><i class="fa-solid fa-plus"></i></div><span class="font-bold">Crea Nuovo Viaggio</span>
-                    </button>
-                    <button onclick="openModal('modal-join-trip')" class="bg-white text-primary border border-slate-200 p-6 rounded-2xl shadow-sm flex flex-col items-center justify-center gap-3 hover:bg-slate-50 transition group active:scale-95">
-                        <div class="h-12 w-12 bg-accent/10 text-accent rounded-full flex items-center justify-center group-hover:scale-110 transition text-xl"><i class="fa-solid fa-ticket"></i></div><span class="font-bold">Unisciti con Codice</span>
-                    </button>
+                <div class="flex gap-2">
+                    <button onclick="openModal('modal-share-trip')" class="bg-accent/10 text-accent h-10 w-10 rounded-xl flex items-center justify-center hover:bg-accent/20 transition"><i class="fa-solid fa-user-plus"></i></button>
+                    <button onclick="openTripSettings()" class="bg-slate-100 text-slate-500 h-10 w-10 rounded-xl flex items-center justify-center hover:bg-slate-200 transition"><i class="fa-solid fa-gear"></i></button>
                 </div>
-                <div class="flex items-center gap-2 mb-4"><i class="fa-solid fa-layer-group text-slate-400"></i>
-                    <h3 class="font-bold text-slate-500 text-xs uppercase tracking-widest">Elenco Viaggi</h3>
+            </div>
+            <div class="flex gap-2">
+                <div id="weather-widget" class="hidden flex-1 bg-blue-50 border border-blue-100 rounded-xl p-2 flex items-center justify-between">
+                    <div class="flex flex-col"><span class="text-[10px] font-bold text-blue-400 uppercase">Meteo</span><span id="weather-desc" class="text-xs font-bold text-blue-800">...</span></div>
+                    <span id="weather-temp" class="text-2xl font-black text-blue-600">--°</span>
                 </div>
-                <div id="trips-list" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    <p class="text-center text-slate-400 italic mt-10 col-span-full">Caricamento viaggi...</p>
+                <div id="countdown-bar" class="hidden flex-[1.5] bg-orange-50 border border-orange-100 rounded-xl p-2 flex items-center justify-center gap-3">
+                    <i class="fa-solid fa-hourglass-half text-orange-400"></i>
+                    <div class="flex flex-col leading-none text-center"><span class="text-[10px] font-bold text-orange-400 uppercase">Manca poco</span><span id="countdown-text" class="text-sm font-black text-orange-600">--</span></div>
+                </div>
+            </div>
+        </header>
+
+        <div class="flex-1 flex overflow-hidden relative">
+            <aside class="hidden lg:flex flex-col w-64 bg-white border-r border-slate-200 p-4 gap-2 shrink-0 overflow-y-auto">
+                <button onclick="switchTab('view-itinerary')" class="nav-btn active flex items-center gap-3 px-4 py-3 rounded-xl text-slate-500 font-bold text-sm transition hover:bg-slate-50" data-target="view-itinerary"><i class="fa-solid fa-route w-5 text-center"></i> Itinerario</button>
+                <button onclick="switchTab('view-map')" class="nav-btn flex items-center gap-3 px-4 py-3 rounded-xl text-slate-500 font-bold text-sm transition hover:bg-slate-50" data-target="view-map"><i class="fa-solid fa-map w-5 text-center"></i> Mappa</button>
+                <button onclick="switchTab('view-social')" class="nav-btn flex items-center gap-3 px-4 py-3 rounded-xl text-slate-500 font-bold text-sm transition hover:bg-slate-50" data-target="view-social"><i class="fa-solid fa-comments w-5 text-center"></i> Social</button>
+                <button onclick="switchTab('view-budget')" class="nav-btn flex items-center gap-3 px-4 py-3 rounded-xl text-slate-500 font-bold text-sm transition hover:bg-slate-50" data-target="view-budget"><i class="fa-solid fa-wallet w-5 text-center"></i> Budget</button>
+                <button onclick="switchTab('view-accom')" class="nav-btn flex items-center gap-3 px-4 py-3 rounded-xl text-slate-500 font-bold text-sm transition hover:bg-slate-50" data-target="view-accom"><i class="fa-solid fa-bed w-5 text-center"></i> Alloggi</button>
+                <button onclick="switchTab('view-photos')" class="nav-btn flex items-center gap-3 px-4 py-3 rounded-xl text-slate-500 font-bold text-sm transition hover:bg-slate-50" data-target="view-photos"><i class="fa-solid fa-images w-5 text-center"></i> Foto</button>
+                <button onclick="switchTab('view-packing')" class="nav-btn flex items-center gap-3 px-4 py-3 rounded-xl text-slate-500 font-bold text-sm transition hover:bg-slate-50" data-target="view-packing"><i class="fa-solid fa-suitcase w-5 text-center"></i> Zaino</button>
+            </aside>
+
+            <main class="flex-1 overflow-y-auto p-4 md:p-8 relative w-full" id="main-container">
+                <div id="view-itinerary" class="tab-content fade-in space-y-6 max-w-5xl mx-auto">
+                    <div class="flex justify-between items-center pb-2 border-b border-slate-200">
+                        <h2 class="text-xl font-black text-primary">Itinerario</h2>
+                        <button onclick="openModal('modal-itinerary')" class="bg-primary text-white h-9 w-9 rounded-full flex items-center justify-center hover:bg-slate-800"><i class="fa-solid fa-plus"></i></button>
+                    </div>
+                    <div id="itinerary-list" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"></div>
+                </div>
+
+                <div id="view-map" class="tab-content hidden h-full flex flex-col">
+                    <div class="bg-blue-50 text-blue-800 p-2 rounded-lg text-[10px] mb-2 shrink-0 flex items-center gap-2"><i class="fa-solid fa-info-circle"></i> Tieni premuto per aggiungere.</div>
+                    <div class="flex-1 relative rounded-2xl overflow-hidden shadow-inner bg-slate-100 border border-slate-200">
+                        <div id="map-container"></div>
+                    </div>
+                </div>
+
+                <div id="view-social" class="tab-content hidden h-full flex flex-col max-w-3xl mx-auto w-full">
+                    <div class="flex gap-2 mb-4 p-1 bg-white rounded-xl shadow-sm border border-slate-200 shrink-0">
+                        <button onclick="toggleSocialMode('chat')" id="btn-mode-chat" class="flex-1 py-2 rounded-lg text-xs font-bold bg-slate-100">Chat</button>
+                        <button onclick="toggleSocialMode('polls')" id="btn-mode-polls" class="flex-1 py-2 rounded-lg text-xs font-bold text-slate-500">Sondaggi</button>
+                    </div>
+                    <div id="social-chat" class="flex-1 flex flex-col h-full overflow-hidden bg-[#e5ddd5] relative rounded-2xl border border-slate-200">
+                        <div class="chat-bg"></div>
+                        <div id="chat-messages" class="flex-1 overflow-y-auto space-y-2 p-4 z-10"></div>
+                        <form onsubmit="sendMessage(event)" class="mt-auto flex gap-2 p-2 bg-white z-10 border-t border-slate-200">
+                            <input type="text" id="chat-input" placeholder="Scrivi un messaggio..." class="flex-1 bg-slate-100 border-none rounded-full px-4 py-3 outline-none text-sm">
+                            <button type="submit" class="bg-[#00a884] text-white h-10 w-10 rounded-full flex items-center justify-center shadow-md"><i class="fa-solid fa-paper-plane"></i></button>
+                        </form>
+                    </div>
+                    <div id="social-polls" class="hidden flex-1 overflow-y-auto pb-20">
+                        <button onclick="openModal('modal-poll')" class="w-full py-3 mb-4 border-2 border-dashed border-slate-300 text-slate-400 rounded-xl font-bold hover:bg-slate-50">+ Crea Sondaggio</button>
+                        <div id="polls-list" class="space-y-4"></div>
+                    </div>
+                </div>
+
+                <div id="view-budget" class="tab-content hidden space-y-6 max-w-5xl mx-auto">
+                    <div class="flex justify-between items-center"><h2 class="text-xl font-black text-primary">Budget</h2>
+                        <div class="flex bg-white border border-slate-200 p-1 rounded-lg">
+                            <button onclick="toggleBudgetMode('personal')" id="btn-budget-personal" class="px-3 py-1.5 rounded-md text-[10px] font-bold bg-slate-100">Mio</button>
+                            <button onclick="toggleBudgetMode('group')" id="btn-budget-group" class="px-3 py-1.5 rounded-md text-[10px] font-bold text-slate-500">Gruppo</button>
+                        </div>
+                    </div>
+                    <div id="budget-personal-section">
+                        <div class="bg-primary text-white p-6 rounded-3xl shadow-xl flex flex-col justify-center mb-6">
+                            <p class="text-slate-400 text-xs font-bold uppercase mb-1">Tuo Residuo</p>
+                            <h3 class="text-4xl font-black" id="budget-remaining">€0</h3>
+                            <div class="flex justify-between mt-1"><span class="text-xs text-slate-400" id="budget-total-display">/ €0</span><button onclick="openSettings()" class="text-[10px] bg-white/10 px-2 py-1 rounded hover:bg-white/20">Imposta Budget</button></div>
+                        </div>
+                        <div class="bg-white p-6 rounded-3xl shadow-sm border border-slate-100 min-h-[300px]">
+                            <div class="flex justify-between mb-4 items-center"><h3 class="font-bold text-sm text-slate-500 uppercase">Le tue spese</h3><button onclick="openExpenseModal('personal')" class="text-xs bg-accent text-white px-3 py-1.5 rounded-lg font-bold">Aggiungi</button></div>
+                            <div id="expense-list" class="space-y-3"></div>
+                        </div>
+                    </div>
+                    <div id="budget-group-section" class="hidden space-y-4">
+                        <div class="bg-purple-50 p-4 rounded-2xl border border-purple-100"><p class="text-xs text-purple-800 font-bold"><i class="fa-solid fa-users mr-2"></i>Chi paga per tutti?</p></div>
+                        <div class="bg-white p-6 rounded-3xl shadow-sm border border-slate-100"><div class="flex justify-between mb-4"><h3 class="font-bold text-sm text-slate-500 uppercase">Spese Comuni</h3><button onclick="openExpenseModal('group')" class="text-xs bg-purple-600 text-white px-3 py-1.5 rounded-lg font-bold">Aggiungi</button></div><div id="group-expense-list" class="space-y-3"></div></div>
+                    </div>
+                </div>
+
+                <div id="view-photos" class="tab-content hidden space-y-6 max-w-5xl mx-auto">
+                    <div class="flex justify-between items-center pb-2 border-b border-slate-200">
+                        <h2 class="text-xl font-black text-primary">Galleria</h2>
+                        <label class="bg-accent text-white px-4 py-2 rounded-xl font-bold text-xs shadow-lg cursor-pointer flex items-center gap-2"><i class="fa-solid fa-camera"></i> Carica <input type="file" id="photo-upload" accept="image/*" class="hidden" onchange="uploadPhoto(this)"></label>
+                    </div>
+                    <div id="photo-upload-bar" class="hidden h-1 bg-accent/20 w-full overflow-hidden rounded-full"><div class="bg-accent h-full animate-pulse w-full"></div></div>
+                    <div id="photos-list" class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2"></div>
+                </div>
+
+                <div id="view-accom" class="tab-content hidden space-y-6 max-w-5xl mx-auto">
+                    <div class="flex justify-between items-center pb-2 border-b border-slate-200">
+                        <h2 class="text-xl font-black text-primary">Alloggi</h2>
+                        <button onclick="openModal('modal-accom')" class="bg-primary text-white h-9 w-9 rounded-full flex items-center justify-center"><i class="fa-solid fa-plus"></i></button>
+                    </div>
+                    <div id="accom-list" class="grid grid-cols-1 md:grid-cols-2 gap-4"></div>
+                </div>
+
+                <div id="view-packing" class="tab-content hidden space-y-6 max-w-3xl mx-auto">
+                    <div class="flex justify-between items-center pb-2 border-b border-slate-200">
+                        <h2 class="text-xl font-black text-primary">Zaino</h2>
+                        <button onclick="openModal('modal-packing')" class="bg-primary text-white h-9 w-9 rounded-full flex items-center justify-center"><i class="fa-solid fa-plus"></i></button>
+                    </div>
+                    <div class="bg-white p-6 rounded-3xl shadow-sm border border-slate-100">
+                        <div class="flex justify-between text-[10px] font-bold text-slate-400 mb-1 uppercase"><span>Progresso</span><span id="packing-percent">0%</span></div>
+                        <div class="bg-slate-100 rounded-full h-2 w-full mb-4 overflow-hidden"><div id="packing-progress" class="bg-success h-2 rounded-full transition-all w-0"></div></div>
+                        <div id="packing-list" class="space-y-2"></div>
+                    </div>
                 </div>
             </main>
-        </section>
-
-        <section id="trip-app-screen" class="h-full w-full flex flex-col hidden absolute inset-0 z-30 bg-slate-50">
-            <header class="bg-surface px-4 py-3 border-b border-slate-200 shadow-sm shrink-0 z-20 bg-white">
-                <div class="flex justify-between items-start mb-3">
-                    <div class="flex items-center gap-3">
-                        <button onclick="exitTrip()" class="h-10 w-10 rounded-xl bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-500 hover:bg-slate-200 transition"><i class="fa-solid fa-arrow-left"></i></button>
-                        <div>
-                            <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Travel Hub</p>
-                            <h1 class="text-xl font-black text-primary leading-none truncate max-w-[150px] sm:max-w-xs cursor-pointer hover:text-accent transition" id="current-trip-title" onclick="openTripSettings()">...</h1>
-                        </div>
-                    </div>
-                    <div class="flex gap-2">
-                        <button onclick="openModal('modal-share-trip')" class="bg-accent/10 text-accent h-10 w-10 rounded-xl flex items-center justify-center hover:bg-accent/20 transition"><i class="fa-solid fa-user-plus"></i></button>
-                        <button onclick="openTripSettings()" class="bg-slate-100 text-slate-500 h-10 w-10 rounded-xl flex items-center justify-center hover:bg-slate-200 transition"><i class="fa-solid fa-gear"></i></button>
-                    </div>
-                </div>
-
-                <div class="flex gap-2">
-                    <div id="weather-widget" class="hidden flex-1 bg-blue-50 border border-blue-100 rounded-xl p-2 flex items-center justify-between">
-                        <div class="flex flex-col"><span class="text-[10px] font-bold text-blue-400 uppercase">Meteo</span><span id="weather-desc" class="text-xs font-bold text-blue-800 truncate max-w-[80px]">...</span></div>
-                        <span id="weather-temp" class="text-2xl font-black text-blue-600">--°</span>
-                    </div>
-                    <div id="countdown-bar" class="hidden flex-[1.5] bg-orange-50 border border-orange-100 rounded-xl p-2 flex items-center justify-center gap-3">
-                        <i class="fa-solid fa-hourglass-half text-orange-400 text-xl"></i>
-                        <div class="flex flex-col leading-none text-center"><span class="text-[10px] font-bold text-orange-400 uppercase">Manca poco</span><span id="countdown-text" class="text-sm font-black text-orange-600">...</span></div>
-                    </div>
-                </div>
-            </header>
-
-            <div class="flex-1 flex overflow-hidden relative">
-                <aside class="hidden lg:flex flex-col w-64 bg-white border-r border-slate-200 p-4 gap-2 shrink-0 overflow-y-auto">
-                    <button onclick="switchTab('view-itinerary')" class="nav-btn active flex items-center gap-3 px-4 py-3 rounded-xl text-slate-500 font-bold text-sm text-left transition hover:bg-slate-50" data-target="view-itinerary"><i class="fa-solid fa-route w-5 text-center"></i> Itinerario</button>
-                    <button onclick="switchTab('view-map')" class="nav-btn flex items-center gap-3 px-4 py-3 rounded-xl text-slate-500 font-bold text-sm text-left transition hover:bg-slate-50" data-target="view-map"><i class="fa-solid fa-map w-5 text-center"></i> Mappa</button>
-                    <button onclick="switchTab('view-social')" class="nav-btn flex items-center gap-3 px-4 py-3 rounded-xl text-slate-500 font-bold text-sm text-left transition hover:bg-slate-50" data-target="view-social"><i class="fa-solid fa-comments w-5 text-center"></i> Social</button>
-                    <button onclick="switchTab('view-budget')" class="nav-btn flex items-center gap-3 px-4 py-3 rounded-xl text-slate-500 font-bold text-sm text-left transition hover:bg-slate-50" data-target="view-budget"><i class="fa-solid fa-wallet w-5 text-center"></i> Budget</button>
-                    <button onclick="switchTab('view-accom')" class="nav-btn flex items-center gap-3 px-4 py-3 rounded-xl text-slate-500 font-bold text-sm text-left transition hover:bg-slate-50" data-target="view-accom"><i class="fa-solid fa-bed w-5 text-center"></i> Alloggi</button>
-                    <button onclick="switchTab('view-docs')" class="nav-btn flex items-center gap-3 px-4 py-3 rounded-xl text-slate-500 font-bold text-sm text-left transition hover:bg-slate-50" data-target="view-docs"><i class="fa-solid fa-folder-open w-5 text-center"></i> Documenti</button>
-                    <button onclick="switchTab('view-photos')" class="nav-btn flex items-center gap-3 px-4 py-3 rounded-xl text-slate-500 font-bold text-sm text-left transition hover:bg-slate-50" data-target="view-photos"><i class="fa-solid fa-images w-5 text-center"></i> Foto</button>
-                    <button onclick="switchTab('view-packing')" class="nav-btn flex items-center gap-3 px-4 py-3 rounded-xl text-slate-500 font-bold text-sm text-left transition hover:bg-slate-50" data-target="view-packing"><i class="fa-solid fa-suitcase w-5 text-center"></i> Zaino</button>
-                </aside>
-
-                <main class="flex-1 overflow-y-auto p-4 md:p-8 relative w-full" id="main-container">
-
-                    <div id="view-itinerary" class="tab-content fade-in space-y-6 max-w-5xl mx-auto">
-                        <div class="flex justify-between items-center pb-2 border-b border-slate-200">
-                            <h2 class="text-xl font-black text-primary">Itinerario</h2>
-                            <button onclick="openModal('modal-itinerary')" class="bg-primary text-white h-9 w-9 rounded-full shadow-lg flex items-center justify-center hover:bg-slate-800 transition"><i class="fa-solid fa-plus"></i></button>
-                        </div>
-                        <div id="itinerary-list" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"></div>
-                    </div>
-
-                    <div id="view-map" class="tab-content hidden h-full flex flex-col">
-                        <div class="bg-blue-50 text-blue-800 p-2 rounded-lg text-[10px] flex items-center gap-2 mb-2 shrink-0">
-                            <i class="fa-solid fa-circle-info"></i> Tieni premuto per aggiungere. Clicca su un pin per eliminarlo.
-                        </div>
-                        <div class="flex-1 relative rounded-2xl overflow-hidden shadow-inner bg-slate-100 border border-slate-200">
-                            <div id="map-container"></div>
-                        </div>
-                    </div>
-
-                    <div id="view-social" class="tab-content hidden h-full flex flex-col max-w-3xl mx-auto w-full">
-                        <div class="flex gap-2 mb-4 p-1 bg-white rounded-xl shadow-sm border border-slate-200 shrink-0">
-                            <button onclick="toggleSocialMode('chat')" id="btn-mode-chat" class="flex-1 py-2 rounded-lg text-xs font-bold bg-slate-100 transition">Chat</button>
-                            <button onclick="toggleSocialMode('polls')" id="btn-mode-polls" class="flex-1 py-2 rounded-lg text-xs font-bold text-slate-500 transition">Sondaggi</button>
-                        </div>
-
-                        <div id="social-chat" class="flex-1 flex flex-col h-full overflow-hidden bg-[#e5ddd5] relative rounded-2xl border border-slate-200">
-                            <div class="chat-bg"></div>
-                            <div id="chat-messages" class="flex-1 overflow-y-auto space-y-2 p-4 z-10"></div>
-                            <form onsubmit="sendMessage(event)" class="mt-auto flex gap-2 p-2 bg-white z-10 border-t border-slate-200">
-                                <input type="text" id="chat-input" placeholder="Scrivi un messaggio..." class="flex-1 bg-slate-100 border-none rounded-full px-4 py-3 outline-none text-sm">
-                                <button type="submit" class="bg-[#00a884] text-white h-10 w-10 rounded-full flex items-center justify-center shadow-md hover:bg-[#008f6f]"><i class="fa-solid fa-paper-plane"></i></button>
-                            </form>
-                        </div>
-
-                        <div id="social-polls" class="hidden flex-1 overflow-y-auto pb-20">
-                            <button onclick="openModal('modal-poll')" class="w-full py-3 mb-4 border-2 border-dashed border-slate-300 text-slate-400 rounded-xl font-bold hover:bg-slate-50 hover:border-slate-400 transition">+ Crea Sondaggio</button>
-                            <div id="polls-list" class="space-y-4"></div>
-                        </div>
-                    </div>
-
-                    <div id="view-photos" class="tab-content hidden space-y-6 max-w-5xl mx-auto">
-                        <div class="flex justify-between items-center pb-2 border-b border-slate-200">
-                            <h2 class="text-xl font-black text-primary">Galleria</h2>
-                            <label class="bg-accent text-white px-4 py-2 rounded-xl font-bold text-xs shadow-lg cursor-pointer flex items-center gap-2"><i class="fa-solid fa-camera"></i> Carica <input type="file" id="photo-upload" accept="image/*" class="hidden" onchange="uploadPhoto(this)"></label>
-                        </div>
-                        <div id="photo-upload-bar" class="hidden h-1 bg-slate-200 w-full overflow-hidden rounded-full">
-                            <div class="bg-accent h-full animate-pulse w-full"></div>
-                        </div>
-                        <div id="photos-list" class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2"></div>
-                    </div>
-
-                    <div id="view-budget" class="tab-content hidden space-y-6 max-w-5xl mx-auto">
-                        <div class="flex justify-between items-center">
-                            <h2 class="text-xl font-black text-primary">Budget</h2>
-                            <div class="flex bg-white border border-slate-200 p-1 rounded-lg shadow-sm">
-                                <button onclick="toggleBudgetMode('personal')" id="btn-budget-personal" class="px-3 py-1.5 rounded-md text-[10px] font-bold bg-slate-100 transition">Mio</button>
-                                <button onclick="toggleBudgetMode('group')" id="btn-budget-group" class="px-3 py-1.5 rounded-md text-[10px] font-bold text-slate-500 transition">Gruppo</button>
-                            </div>
-                        </div>
-
-                        <div id="budget-personal-section">
-                            <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
-                                <div class="bg-primary text-white p-6 rounded-3xl shadow-xl flex flex-col justify-center relative overflow-hidden">
-                                    <div class="absolute -right-5 -top-5 w-24 h-24 bg-accent/30 rounded-full blur-2xl"></div>
-                                    <p class="text-slate-400 text-xs font-bold uppercase mb-1">Tuo Residuo</p>
-                                    <h3 class="text-4xl font-black" id="budget-remaining">€0</h3>
-                                    <div class="flex justify-between items-end mt-1">
-                                        <span class="text-xs text-slate-400" id="budget-total-display">/ €0</span>
-                                        <button onclick="openSettings()" class="text-[10px] bg-white/10 px-2 py-1 rounded hover:bg-white/20">Modifica</button>
-                                    </div>
-                                </div>
-                                <div class="md:col-span-2 bg-white p-6 rounded-3xl shadow-sm border border-slate-100 flex flex-col h-full min-h-[300px]">
-                                    <div class="flex justify-between mb-4 items-center">
-                                        <h3 class="font-bold text-sm text-slate-500 uppercase">Le tue spese</h3>
-                                        <button onclick="openExpenseModal('personal')" class="text-xs bg-accent text-white px-3 py-1.5 rounded-lg font-bold shadow-md hover:bg-blue-600 transition">Aggiungi</button>
-                                    </div>
-                                    <div id="expense-list" class="space-y-3 overflow-y-auto pr-2 flex-1"></div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div id="budget-group-section" class="hidden">
-                            <div class="bg-purple-50 p-4 rounded-2xl mb-4 border border-purple-100">
-                                <p class="text-xs text-purple-800 font-bold"><i class="fa-solid fa-users-viewfinder mr-2"></i>Chi paga per tutti?</p>
-                                <p class="text-[10px] text-purple-600 mt-1">Aggiungi qui le spese comuni. L'app segna chi ha anticipato i soldi.</p>
-                            </div>
-                            <div class="bg-white p-6 rounded-3xl shadow-sm border border-slate-100 min-h-[300px]">
-                                <div class="flex justify-between mb-4 items-center">
-                                    <h3 class="font-bold text-sm text-slate-500 uppercase">Spese Comuni</h3>
-                                    <button onclick="openExpenseModal('group')" class="text-xs bg-purple-600 text-white px-3 py-1.5 rounded-lg font-bold shadow-md hover:bg-purple-700 transition">Aggiungi</button>
-                                </div>
-                                <div id="group-expense-list" class="space-y-3"></div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div id="view-accom" class="tab-content hidden space-y-6 max-w-5xl mx-auto">
-                        <div class="flex justify-between items-center pb-2 border-b border-slate-200">
-                            <h2 class="text-xl font-black text-primary">Alloggi</h2>
-                            <button onclick="openModal('modal-accom')" class="bg-primary text-white h-9 w-9 rounded-full shadow-lg flex items-center justify-center hover:bg-slate-800 transition"><i class="fa-solid fa-plus"></i></button>
-                        </div>
-                        <div id="accom-list" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-4"></div>
-                    </div>
-
-                    <div id="view-docs" class="tab-content hidden space-y-6 max-w-5xl mx-auto">
-                        <div class="flex justify-between items-center pb-2 border-b border-slate-200">
-                            <h2 class="text-xl font-black text-primary">Documenti</h2>
-                            <label class="bg-accent text-white px-4 py-2 rounded-xl font-bold text-xs shadow-lg cursor-pointer flex items-center gap-2"><i class="fa-solid fa-cloud-arrow-up"></i> Carica <input type="file" id="file-upload" class="hidden" onchange="uploadFile(this)"></label>
-                        </div>
-                        <div id="upload-bar" class="hidden h-1 bg-slate-200 w-full overflow-hidden rounded-full">
-                            <div class="bg-accent h-full animate-pulse w-full"></div>
-                        </div>
-                        <div id="docs-list" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4"></div>
-                    </div>
-
-                    <div id="view-packing" class="tab-content hidden space-y-6 max-w-3xl mx-auto">
-                        <div class="flex justify-between items-center pb-2 border-b border-slate-200">
-                            <h2 class="text-xl font-black text-primary">Zaino</h2>
-                            <button onclick="openModal('modal-packing')" class="bg-primary text-white h-9 w-9 rounded-full shadow-lg flex items-center justify-center hover:bg-slate-800 transition"><i class="fa-solid fa-plus"></i></button>
-                        </div>
-                        <div class="bg-white p-6 rounded-3xl shadow-sm border border-slate-100">
-                            <div class="flex justify-between text-[10px] font-bold text-slate-400 mb-1 uppercase"><span>Stato</span><span id="packing-percent">0%</span></div>
-                            <div class="bg-slate-100 rounded-full h-2 w-full mb-4 overflow-hidden">
-                                <div id="packing-progress" class="bg-success h-2 rounded-full transition-all w-0"></div>
-                            </div>
-                            <div id="packing-list" class="space-y-2"></div>
-                        </div>
-                    </div>
-                </main>
-            </div>
-
-            <nav class="lg:hidden bg-white border-t border-slate-200 pb-safe z-40">
-                <div class="flex scroll-nav h-16 px-2 gap-1 items-center">
-                    <button onclick="switchTab('view-itinerary')" class="nav-btn active min-w-[64px] flex flex-col items-center justify-center text-slate-400" data-target="view-itinerary"><i class="fa-solid fa-route text-lg mb-1"></i><span class="text-[9px] font-bold">Viaggio</span></button>
-                    <button onclick="switchTab('view-map')" class="nav-btn min-w-[64px] flex flex-col items-center justify-center text-slate-400" data-target="view-map"><i class="fa-solid fa-map text-lg mb-1"></i><span class="text-[9px] font-bold">Mappa</span></button>
-                    <button onclick="switchTab('view-social')" class="nav-btn min-w-[64px] flex flex-col items-center justify-center text-slate-400" data-target="view-social"><i class="fa-solid fa-comments text-lg mb-1"></i><span class="text-[9px] font-bold">Social</span></button>
-                    <button onclick="switchTab('view-budget')" class="nav-btn min-w-[64px] flex flex-col items-center justify-center text-slate-400" data-target="view-budget"><i class="fa-solid fa-wallet text-lg mb-1"></i><span class="text-[9px] font-bold">Budget</span></button>
-                    <button onclick="switchTab('view-photos')" class="nav-btn min-w-[64px] flex flex-col items-center justify-center text-slate-400" data-target="view-photos"><i class="fa-solid fa-images text-lg mb-1"></i><span class="text-[9px] font-bold">Foto</span></button>
-                    <button onclick="switchTab('view-accom')" class="nav-btn min-w-[64px] flex flex-col items-center justify-center text-slate-400" data-target="view-accom"><i class="fa-solid fa-bed text-lg mb-1"></i><span class="text-[9px] font-bold">Alloggi</span></button>
-                    <button onclick="switchTab('view-docs')" class="nav-btn min-w-[64px] flex flex-col items-center justify-center text-slate-400" data-target="view-docs"><i class="fa-solid fa-folder-open text-lg mb-1"></i><span class="text-[9px] font-bold">Docs</span></button>
-                    <button onclick="switchTab('view-packing')" class="nav-btn min-w-[64px] flex flex-col items-center justify-center text-slate-400" data-target="view-packing"><i class="fa-solid fa-suitcase text-lg mb-1"></i><span class="text-[9px] font-bold">Zaino</span></button>
-                </div>
-            </nav>
-        </section>
-
-        <div id="modal-user-settings" class="fixed inset-0 z-[70] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 hidden">
-            <div class="bg-white w-full max-w-sm rounded-3xl p-6 shadow-2xl relative">
-                <button onclick="closeModal('modal-user-settings')" class="absolute top-4 right-4 text-slate-300 hover:text-slate-500"><i class="fa-solid fa-xmark text-xl"></i></button>
-                <div class="text-center mb-6">
-                    <div class="h-16 w-16 bg-slate-100 rounded-full flex items-center justify-center text-2xl text-slate-400 mx-auto mb-3"><i class="fa-solid fa-user"></i></div>
-                    <h3 class="font-bold text-xl text-primary" id="profile-name">Il mio Account</h3>
-                    <p class="text-sm text-slate-500 truncate px-4" id="profile-email">...</p>
-                </div>
-                <button onclick="openModal('modal-feedback')" class="w-full flex items-center justify-between p-4 bg-blue-50 rounded-xl hover:bg-blue-100 transition mb-3">
-                    <div class="flex items-center gap-3">
-                        <div class="bg-white p-2 rounded-lg text-blue-500 shadow-sm"><i class="fa-solid fa-comment-dots"></i></div>
-                        <div class="text-left">
-                            <span class="block font-bold text-sm text-blue-800">Invia Feedback</span>
-                            <span class="block text-[10px] text-blue-400 font-bold">Segnala bug o suggerimenti</span>
-                        </div>
-                    </div>
-                    <i class="fa-solid fa-chevron-right text-xs text-blue-300"></i>
-                </button>
-                <div class="space-y-3">
-                    <button onclick="sendResetPassword()" class="w-full flex items-center justify-between p-4 bg-slate-50 rounded-xl hover:bg-slate-100 transition">
-                        <div class="flex items-center gap-3">
-                            <div class="bg-white p-2 rounded-lg text-slate-500 shadow-sm"><i class="fa-solid fa-key"></i></div><span class="font-bold text-sm text-slate-600">Cambia Password (via Email)</span>
-                        </div>
-                    </button>
-                    <button onclick="logout()" class="w-full p-4 bg-slate-50 rounded-xl hover:bg-slate-100 font-bold text-sm text-slate-600">Esci</button>
-                    <button onclick="deleteAccount()" class="w-full p-4 bg-red-50 text-red-500 rounded-xl font-bold text-sm hover:bg-red-100">Elimina Account</button>
-                </div>
-            </div>
         </div>
 
-        <div id="modal-create-trip" class="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 hidden">
-            <div class="bg-white w-full max-w-sm rounded-3xl p-6 shadow-2xl">
-                <h3 class="font-bold text-xl mb-4 text-primary">Nuovo Viaggio</h3>
-                <input type="text" id="new-trip-name" placeholder="Nome (es. Camino 2026)" class="w-full p-4 bg-slate-50 rounded-xl mb-3 border border-slate-200 outline-none">
-                <input type="text" id="new-trip-city" placeholder="Città Destinazione (es. Roma)" class="w-full p-4 bg-slate-50 rounded-xl mb-3 border border-slate-200 outline-none">
-                <label class="text-[10px] font-bold text-slate-400 uppercase ml-1">Data Inizio</label>
-                <input type="date" id="new-trip-date" class="w-full p-4 bg-slate-50 rounded-xl mb-4 border border-slate-200 outline-none">
-                <div class="flex gap-3"><button onclick="closeModal('modal-create-trip')" class="flex-1 py-3 font-bold text-slate-500 hover:bg-slate-100 rounded-xl">Annulla</button><button onclick="createTrip()" class="flex-1 py-3 bg-primary text-white font-bold rounded-xl shadow-lg">Crea</button></div>
+        <nav class="lg:hidden bg-white border-t border-slate-200 pb-safe z-40 shrink-0">
+            <div class="flex scroll-nav h-16 px-2 gap-1 items-center">
+                <button onclick="switchTab('view-itinerary')" class="nav-btn active min-w-[64px] flex flex-col items-center justify-center text-slate-400" data-target="view-itinerary"><i class="fa-solid fa-route text-lg mb-1"></i><span class="text-[9px] font-bold">Viaggio</span></button>
+                <button onclick="switchTab('view-map')" class="nav-btn min-w-[64px] flex flex-col items-center justify-center text-slate-400" data-target="view-map"><i class="fa-solid fa-map text-lg mb-1"></i><span class="text-[9px] font-bold">Mappa</span></button>
+                <button onclick="switchTab('view-social')" class="nav-btn min-w-[64px] flex flex-col items-center justify-center text-slate-400" data-target="view-social"><i class="fa-solid fa-comments text-lg mb-1"></i><span class="text-[9px] font-bold">Social</span></button>
+                <button onclick="switchTab('view-budget')" class="nav-btn min-w-[64px] flex flex-col items-center justify-center text-slate-400" data-target="view-budget"><i class="fa-solid fa-wallet text-lg mb-1"></i><span class="text-[9px] font-bold">Budget</span></button>
+                <button onclick="switchTab('view-photos')" class="nav-btn min-w-[64px] flex flex-col items-center justify-center text-slate-400" data-target="view-photos"><i class="fa-solid fa-images text-lg mb-1"></i><span class="text-[9px] font-bold">Foto</span></button>
+                <button onclick="switchTab('view-accom')" class="nav-btn min-w-[64px] flex flex-col items-center justify-center text-slate-400" data-target="view-accom"><i class="fa-solid fa-bed text-lg mb-1"></i><span class="text-[9px] font-bold">Alloggi</span></button>
+                <button onclick="switchTab('view-packing')" class="nav-btn min-w-[64px] flex flex-col items-center justify-center text-slate-400" data-target="view-packing"><i class="fa-solid fa-suitcase text-lg mb-1"></i><span class="text-[9px] font-bold">Zaino</span></button>
             </div>
-        </div>
+        </nav>
+    </section>
 
-        <div id="modal-join-trip" class="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 hidden">
-            <div class="bg-white w-full max-w-sm rounded-3xl p-6 shadow-2xl">
-                <h3 class="font-bold text-xl mb-4 text-primary">Unisciti</h3>
-                <input type="text" id="join-trip-code" placeholder="Codice" class="w-full p-4 bg-slate-50 rounded-xl mb-4 border border-slate-200 outline-none font-mono text-center tracking-widest uppercase text-lg">
-                <div class="flex gap-3"><button onclick="closeModal('modal-join-trip')" class="flex-1 py-3 font-bold text-slate-500 hover:bg-slate-100 rounded-xl">Annulla</button><button onclick="joinTrip()" class="flex-1 py-3 bg-accent text-white font-bold rounded-xl shadow-lg">Entra</button></div>
+    <div id="modal-user-settings" class="fixed inset-0 z-[70] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 hidden">
+        <div class="bg-white w-full max-w-sm rounded-3xl p-6 shadow-2xl relative">
+            <button onclick="closeModal('modal-user-settings')" class="absolute top-4 right-4 text-slate-300 hover:text-slate-500"><i class="fa-solid fa-xmark text-xl"></i></button>
+            <div class="text-center mb-6">
+                <div class="h-16 w-16 bg-slate-100 rounded-full flex items-center justify-center text-2xl text-slate-400 mx-auto mb-3"><i class="fa-solid fa-user"></i></div>
+                <h3 class="font-bold text-xl text-primary" id="profile-name">Account</h3>
+                <p class="text-sm text-slate-500 truncate px-4" id="profile-email">...</p>
             </div>
-        </div>
-
-        <div id="modal-trip-settings" class="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 hidden">
-            <div class="bg-white w-full max-w-sm rounded-3xl p-6 shadow-2xl">
-                <h3 class="font-bold text-xl mb-4 text-primary">Impostazioni</h3>
-                <input type="text" id="settings-trip-name" class="w-full p-3 bg-slate-50 rounded-xl border border-slate-200 mb-4">
-                <button onclick="renameTrip()" class="w-full py-2 bg-primary text-white rounded-xl font-bold mb-4">Rinomina</button>
-
-                <div class="mb-4">
-                    <label class="text-xs font-bold text-slate-400 uppercase">Membri (Clicca per rimuovere)</label>
-                    <div id="members-list" class="mt-2 space-y-2 max-h-32 overflow-y-auto bg-slate-50 p-2 rounded-xl"></div>
+            <button onclick="openModal('modal-feedback')" class="w-full flex items-center justify-between p-4 bg-blue-50 rounded-xl hover:bg-blue-100 transition mb-3 text-left">
+                <div class="flex items-center gap-3">
+                    <div class="bg-white p-2 rounded-lg text-blue-500 shadow-sm"><i class="fa-solid fa-comment-dots"></i></div>
+                    <div><span class="block font-bold text-sm text-blue-800">Invia Feedback</span><span class="block text-[10px] text-blue-400 font-bold">Segnala bug o suggerimenti</span></div>
                 </div>
-
-                <div id="admin-actions" class="hidden"><button onclick="deleteTrip()" class="w-full py-3 bg-red-50 text-red-500 font-bold rounded-xl">Elimina Viaggio</button></div>
-                <div id="user-actions" class="hidden"><button onclick="leaveTrip()" class="w-full py-3 bg-slate-100 text-slate-500 font-bold rounded-xl">Esci dal gruppo</button></div>
-                <button onclick="closeModal('modal-trip-settings')" class="w-full mt-2 py-3 text-slate-400 text-sm font-bold">Chiudi</button>
+                <i class="fa-solid fa-chevron-right text-xs text-blue-300"></i>
+            </button>
+            <div class="space-y-3">
+                <button onclick="logout()" class="w-full p-4 bg-slate-50 rounded-xl hover:bg-slate-100 font-bold text-sm text-slate-600">Esci</button>
+                <button onclick="deleteAccount()" class="w-full p-4 bg-red-50 text-red-500 rounded-xl font-bold text-sm hover:bg-red-100">Elimina Account</button>
             </div>
         </div>
+    </div>
 
-        <div id="modal-share-trip" class="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 hidden">
-            <div class="bg-white w-full max-w-sm rounded-3xl p-6 shadow-2xl text-center">
-                <h3 class="font-bold text-xl mb-2 text-primary">Invita Amici</h3>
-                <div class="bg-slate-100 p-4 rounded-xl border border-dashed border-slate-300 mb-4 cursor-pointer" onclick="copyCode()">
-                    <p class="font-mono text-3xl font-black text-primary tracking-widest" id="share-code">...</p>
-                    <p class="text-[10px] text-slate-400 mt-1 uppercase font-bold">Clicca per copiare</p>
-                </div>
-                <button onclick="closeModal('modal-share-trip')" class="w-full py-3 bg-slate-100 text-slate-500 font-bold rounded-xl">Chiudi</button>
-            </div>
+    <div id="modal-create-trip" class="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 hidden">
+        <div class="bg-white w-full max-w-sm rounded-3xl p-6 shadow-2xl">
+            <h3 class="font-bold text-xl mb-4 text-primary">Nuovo Viaggio</h3>
+            <input type="text" id="new-trip-name" placeholder="Nome Viaggio" class="w-full p-4 bg-slate-50 rounded-xl mb-3 border border-slate-200 outline-none">
+            <input type="text" id="new-trip-city" placeholder="Città (es. Roma)" class="w-full p-4 bg-slate-50 rounded-xl mb-3 border border-slate-200 outline-none">
+            <input type="date" id="new-trip-date" class="w-full p-4 bg-slate-50 rounded-xl mb-4 border border-slate-200 outline-none">
+            <div class="flex gap-3"><button onclick="closeModal('modal-create-trip')" class="flex-1 py-3 font-bold text-slate-500">Annulla</button><button onclick="createTrip()" class="flex-1 py-3 bg-primary text-white font-bold rounded-xl">Crea</button></div>
         </div>
-
-        <div id="modal-itinerary" class="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 hidden">
-            <div class="bg-white w-full max-w-md rounded-3xl p-6 shadow-2xl">
-                <h3 class="font-bold text-lg mb-4 text-primary">Nuova Tappa</h3>
-                <input type="text" id="itin-title" placeholder="Titolo" class="w-full p-3 bg-slate-50 rounded-xl mb-3 border border-slate-200 outline-none">
-                <div class="flex gap-2 mb-3"><input type="date" id="itin-date" class="w-1/2 p-3 bg-slate-50 rounded-xl border border-slate-200 outline-none text-sm"><input type="time" id="itin-time" class="w-1/2 p-3 bg-slate-50 rounded-xl border border-slate-200 outline-none text-sm"></div>
-                <textarea id="itin-desc" placeholder="Descrizione" rows="2" class="w-full p-3 bg-slate-50 rounded-xl mb-4 border border-slate-200 outline-none text-sm"></textarea>
-                <div class="flex gap-2"><button onclick="closeModal('modal-itinerary')" class="flex-1 py-3 bg-slate-100 rounded-xl">Annulla</button><button onclick="saveItinerary()" class="flex-1 py-3 bg-primary text-white rounded-xl">Salva</button></div>
-            </div>
+    </div>
+    <div id="modal-join-trip" class="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 hidden">
+        <div class="bg-white w-full max-w-sm rounded-3xl p-6 shadow-2xl text-center">
+            <h3 class="font-bold text-xl mb-4 text-primary text-left">Unisciti con Codice</h3>
+            <input type="text" id="join-trip-code" placeholder="Codice Invito" class="w-full p-4 bg-slate-50 rounded-xl mb-4 border border-slate-200 outline-none font-mono text-center tracking-widest uppercase">
+            <div class="flex gap-3"><button onclick="closeModal('modal-join-trip')" class="flex-1 py-3 font-bold text-slate-500">Annulla</button><button onclick="joinTrip()" class="flex-1 py-3 bg-accent text-white font-bold rounded-xl">Unisciti</button></div>
         </div>
+    </div>
 
-        <div id="modal-accom" class="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 hidden">
-            <div class="bg-white w-full max-w-md rounded-3xl p-6 shadow-2xl">
-                <h3 class="font-bold text-lg mb-4 text-primary">Nuovo Alloggio</h3>
-                <input type="text" id="acc-name" placeholder="Nome" class="w-full p-3 bg-slate-50 rounded-xl mb-3 border border-slate-200 outline-none">
-                <input type="text" id="acc-address" placeholder="Indirizzo" class="w-full p-3 bg-slate-50 rounded-xl mb-3 border border-slate-200 outline-none text-sm">
-                <div class="flex gap-2 mb-4"><input type="date" id="acc-checkin" class="flex-1 p-3 bg-slate-50 rounded-xl border border-slate-200"><input type="date" id="acc-checkout" class="flex-1 p-3 bg-slate-50 rounded-xl border border-slate-200"></div>
-                <div class="flex gap-2"><button onclick="closeModal('modal-accom')" class="flex-1 py-3 bg-slate-100 rounded-xl">Annulla</button><button onclick="saveAccom()" class="flex-1 py-3 bg-primary text-white rounded-xl">Salva</button></div>
-            </div>
+    <div id="modal-feedback" class="fixed inset-0 z-[80] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 hidden">
+        <div class="bg-white w-full max-w-md rounded-3xl p-6 shadow-2xl">
+            <h3 class="font-bold text-lg mb-2 text-primary">Contatta lo Sviluppatore</h3>
+            <p class="text-xs text-slate-400 mb-4">Hai trovato un bug o hai un'idea?</p>
+            <select id="feedback-type" class="w-full p-3 bg-slate-50 rounded-xl mb-3 border border-slate-200 text-sm font-bold text-slate-600 outline-none">
+                <option value="bug">🐛 Segnala un Problema</option>
+                <option value="feature">💡 Suggerisci Funzionalità</option>
+                <option value="other">✉️ Altro</option>
+            </select>
+            <textarea id="feedback-text" rows="4" placeholder="Scrivi qui..." class="w-full p-3 bg-slate-50 rounded-xl mb-4 border border-slate-200 outline-none text-sm resize-none"></textarea>
+            <div class="flex gap-2"><button onclick="closeModal('modal-feedback')" class="flex-1 py-3 bg-slate-100 rounded-xl font-bold text-slate-500">Annulla</button><button onclick="sendFeedback()" class="flex-1 py-3 bg-primary text-white rounded-xl font-bold shadow-lg">Invia</button></div>
         </div>
+    </div>
 
-        <div id="modal-expense" class="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 hidden">
-            <div class="bg-white w-full max-w-md rounded-3xl p-6 shadow-2xl">
-                <h3 class="font-bold text-lg mb-2 text-primary" id="exp-modal-title">Nuova Spesa</h3>
-
-                <div id="exp-type-selector" class="flex gap-2 mb-4 p-1 bg-slate-100 rounded-lg">
-                    <button id="btn-type-personal" onclick="switchExpType('personal')" class="flex-1 py-1 rounded text-xs font-bold bg-white shadow-sm">Personale</button>
-                    <button id="btn-type-group" onclick="switchExpType('group')" class="flex-1 py-1 rounded text-xs font-bold text-slate-500">Di Gruppo</button>
-                </div>
-                <input type="hidden" id="exp-current-type" value="personal">
-                <input type="hidden" id="exp-edit-id" value="">
-
-                <input type="text" id="exp-title" placeholder="Descrizione (es. Cena)" class="w-full p-3 bg-slate-50 rounded-xl mb-3 border border-slate-200">
-
-                <div id="exp-categories" class="flex gap-2 mb-3 overflow-x-auto no-scrollbar">
-                    <button onclick="selectCategory(this, 'food')" class="cat-btn flex-1 py-2 px-3 bg-slate-50 border border-slate-200 rounded-lg text-xs font-bold text-slate-500 hover:bg-orange-50 hover:text-orange-500">Cibo</button>
-                    <button onclick="selectCategory(this, 'transport')" class="cat-btn flex-1 py-2 px-3 bg-slate-50 border border-slate-200 rounded-lg text-xs font-bold text-slate-500 hover:bg-blue-50 hover:text-blue-500">Bus</button>
-                    <button onclick="selectCategory(this, 'sleep')" class="cat-btn flex-1 py-2 px-3 bg-slate-50 border border-slate-200 rounded-lg text-xs font-bold text-slate-500 hover:bg-purple-50 hover:text-purple-500">Hotel</button>
-                </div>
-                <input type="hidden" id="exp-category" value="general">
-
-                <div class="relative mb-4">
-                    <span class="absolute left-4 top-3 text-slate-400 font-bold">€</span>
-                    <input type="number" id="exp-amount" placeholder="0.00" step="0.01" min="0" class="w-full p-3 pl-8 bg-slate-50 rounded-xl border border-slate-200 font-mono text-lg">
-                </div>
-
-                <div class="flex gap-2">
-                    <button onclick="closeModal('modal-expense')" class="flex-1 py-3 bg-slate-100 rounded-xl font-bold text-slate-500">Annulla</button>
-                    <button onclick="saveExpenseFromModal()" class="flex-1 py-3 bg-primary text-white rounded-xl font-bold">Salva</button>
-                </div>
-            </div>
+    <div id="modal-itinerary" class="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 hidden">
+        <div class="bg-white w-full max-w-md rounded-3xl p-6 shadow-2xl">
+            <h3 class="font-bold text-lg mb-4 text-primary">Aggiungi Tappa</h3>
+            <input type="text" id="itin-title" placeholder="Cosa facciamo?" class="w-full p-3 bg-slate-50 rounded-xl mb-3 border border-slate-200">
+            <div class="flex gap-2 mb-3"><input type="date" id="itin-date" class="w-1/2 p-3 bg-slate-50 rounded-xl border border-slate-200"><input type="time" id="itin-time" class="w-1/2 p-3 bg-slate-50 rounded-xl border border-slate-200"></div>
+            <textarea id="itin-desc" placeholder="Dettagli..." rows="2" class="w-full p-3 bg-slate-50 rounded-xl mb-4 border border-slate-200 text-sm"></textarea>
+            <div class="flex gap-2"><button onclick="closeModal('modal-itinerary')" class="flex-1 py-3 bg-slate-100 rounded-xl">Annulla</button><button onclick="saveItinerary()" class="flex-1 py-3 bg-primary text-white rounded-xl">Salva</button></div>
         </div>
-
-        <div id="modal-packing" class="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 hidden">
-            <div class="bg-white w-full max-w-md rounded-3xl p-6 shadow-2xl">
-                <h3 class="font-bold text-lg mb-4 text-primary">Nuovo Oggetto</h3>
-                <input type="text" id="pack-item" placeholder="Oggetto" class="w-full p-3 bg-slate-50 rounded-xl mb-3 border border-slate-200">
-                <label class="flex items-center gap-3 p-3 bg-slate-50 rounded-xl mb-4">
-                    <input type="checkbox" id="pack-private" class="w-5 h-5 rounded text-accent"> <span class="text-sm font-bold text-slate-600">Privato</span>
-                </label>
-                <div class="flex gap-2"><button onclick="closeModal('modal-packing')" class="flex-1 py-3 bg-slate-100 rounded-xl">Annulla</button><button onclick="savePackItem()" class="flex-1 py-3 bg-primary text-white rounded-xl">Aggiungi</button></div>
+    </div>
+    <div id="modal-expense" class="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 hidden">
+        <div class="bg-white w-full max-w-md rounded-3xl p-6 shadow-2xl">
+            <h3 class="font-bold text-lg mb-2 text-primary" id="exp-modal-title">Nuova Spesa</h3>
+            <div id="exp-type-selector" class="flex gap-2 mb-4 p-1 bg-slate-100 rounded-lg">
+                <button id="btn-type-personal" onclick="switchExpType('personal')" class="flex-1 py-1 rounded text-xs font-bold bg-white shadow-sm">Personale</button>
+                <button id="btn-type-group" onclick="switchExpType('group')" class="flex-1 py-1 rounded text-xs font-bold text-slate-500">Gruppo</button>
             </div>
-        </div>
-
-        <div id="modal-poll" class="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 hidden">
-            <div class="bg-white w-full max-w-md rounded-3xl p-6 shadow-2xl max-h-[80vh] flex flex-col">
-                <h3 class="font-bold text-lg mb-4 text-primary">Nuovo Sondaggio</h3>
-                <input type="text" id="poll-question" placeholder="Domanda (es. Dove ceniamo?)" class="w-full p-3 bg-slate-50 rounded-xl mb-3 border border-slate-200 shrink-0">
-                <div id="poll-options-container" class="space-y-2 overflow-y-auto mb-3 pr-2">
-                    <input type="text" placeholder="Opzione 1" class="poll-opt-input w-full p-2 bg-slate-50 rounded-lg border border-slate-200 text-sm">
-                    <input type="text" placeholder="Opzione 2" class="poll-opt-input w-full p-2 bg-slate-50 rounded-lg border border-slate-200 text-sm">
-                </div>
-                <button onclick="addPollOption()" class="text-xs font-bold text-accent mb-4 self-start">+ Aggiungi Opzione</button>
-                <div class="flex gap-2 shrink-0"><button onclick="closeModal('modal-poll')" class="flex-1 py-3 bg-slate-100 rounded-xl">Annulla</button><button onclick="createPoll()" class="flex-1 py-3 bg-primary text-white rounded-xl">Pubblica</button></div>
+            <input type="hidden" id="exp-current-type" value="personal">
+            <input type="hidden" id="exp-edit-id" value="">
+            <input type="text" id="exp-title" placeholder="Descrizione" class="w-full p-3 bg-slate-50 rounded-xl mb-3 border border-slate-200 outline-none">
+            <div id="exp-categories" class="flex gap-2 mb-3 overflow-x-auto no-scrollbar">
+                <button onclick="selectCategory(this, 'food')" class="cat-btn flex-1 py-2 px-3 bg-slate-50 border border-slate-200 rounded-lg text-xs font-bold text-slate-500">Cibo</button>
+                <button onclick="selectCategory(this, 'transport')" class="cat-btn flex-1 py-2 px-3 bg-slate-50 border border-slate-200 rounded-lg text-xs font-bold text-slate-500">Bus</button>
+                <button onclick="selectCategory(this, 'sleep')" class="cat-btn flex-1 py-2 px-3 bg-slate-50 border border-slate-200 rounded-lg text-xs font-bold text-slate-500">Hotel</button>
             </div>
-        </div>
-
-        <div id="modal-settings" class="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 hidden">
-            <div class="bg-white w-full max-w-md rounded-3xl p-6 shadow-2xl">
-                <h3 class="font-bold text-lg mb-4 text-primary">Budget Personale Totale</h3>
-                <input type="number" id="settings-budget" class="w-full p-3 mb-4 bg-slate-50 rounded-xl border border-slate-200 font-mono text-lg">
-                <button onclick="saveSettings()" class="w-full py-3 bg-primary text-white rounded-xl">Aggiorna</button>
-                <button onclick="closeModal('modal-settings')" class="w-full mt-2 py-3 text-slate-400 text-sm">Chiudi</button>
+            <input type="hidden" id="exp-category" value="general">
+            <div class="relative mb-4">
+                <span class="absolute left-4 top-3 text-slate-400 font-bold">€</span>
+                <input type="number" id="exp-amount" placeholder="0.00" step="0.01" class="w-full p-3 pl-8 bg-slate-50 rounded-xl border border-slate-200 font-mono">
             </div>
+            <div class="flex gap-2"><button onclick="closeModal('modal-expense')" class="flex-1 py-3 bg-slate-100 rounded-xl">Annulla</button><button onclick="saveExpenseFromModal()" class="flex-1 py-3 bg-primary text-white rounded-xl">Salva</button></div>
         </div>
-
-        <div id="modal-feedback" class="fixed inset-0 z-[80] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 hidden">
-            <div class="bg-white w-full max-w-md rounded-3xl p-6 shadow-2xl">
-                <h3 class="font-bold text-lg mb-2 text-primary">Contatta lo Sviluppatore</h3>
-                <p class="text-xs text-slate-400 mb-4">Aiutami a migliorare l'app!</p>
-
-                <label class="text-[10px] font-bold text-slate-400 uppercase ml-1">Tipo di messaggio</label>
-                <select id="feedback-type" class="w-full p-3 bg-slate-50 rounded-xl mb-3 border border-slate-200 text-sm font-bold text-slate-600 outline-none">
-                    <option value="bug">🐛 Segnala un Problema</option>
-                    <option value="feature">💡 Suggerisci Funzionalità</option>
-                    <option value="other">✉️ Altro</option>
-                </select>
-
-                <textarea id="feedback-text" rows="4" placeholder="Scrivi qui il tuo messaggio..." class="w-full p-3 bg-slate-50 rounded-xl mb-4 border border-slate-200 outline-none text-sm resize-none"></textarea>
-
-                <div class="flex gap-2">
-                    <button onclick="closeModal('modal-feedback')" class="flex-1 py-3 bg-slate-100 rounded-xl font-bold text-slate-500">Annulla</button>
-                    <button onclick="sendFeedback()" class="flex-1 py-3 bg-primary text-white rounded-xl font-bold shadow-lg">Invia</button>
-                </div>
+    </div>
+    <div id="modal-share-trip" class="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 hidden">
+        <div class="bg-white w-full max-w-sm rounded-3xl p-6 shadow-2xl text-center">
+            <h3 class="font-bold text-xl mb-2 text-primary">Invita Amici</h3>
+            <div class="bg-slate-100 p-4 rounded-xl border border-dashed border-slate-300 mb-4 cursor-pointer" onclick="copyCode()">
+                <p class="font-mono text-3xl font-black text-primary tracking-widest" id="share-code">...</p>
+                <p class="text-[10px] text-slate-400 mt-1 uppercase font-bold">Clicca per copiare</p>
             </div>
+            <button onclick="closeModal('modal-share-trip')" class="w-full py-3 bg-slate-100 text-slate-500 font-bold rounded-xl">Chiudi</button>
         </div>
+    </div>
+    <div id="modal-settings" class="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 hidden">
+        <div class="bg-white w-full max-w-md rounded-3xl p-6 shadow-2xl">
+            <h3 class="font-bold text-lg mb-4 text-primary">Budget Personale Totale (€)</h3>
+            <input type="number" id="settings-budget" class="w-full p-3 mb-4 bg-slate-50 rounded-xl border border-slate-200 font-mono text-lg">
+            <button onclick="saveSettings()" class="w-full py-3 bg-primary text-white rounded-xl font-bold">Aggiorna</button>
+            <button onclick="closeModal('modal-settings')" class="w-full mt-2 py-3 text-slate-400 text-sm font-bold">Annulla</button>
+        </div>
+    </div>
+    <div id="modal-poll" class="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 hidden">
+        <div class="bg-white w-full max-w-md rounded-3xl p-6 shadow-2xl flex flex-col max-h-[80vh]">
+            <h3 class="font-bold text-lg mb-4 text-primary">Crea Sondaggio</h3>
+            <input type="text" id="poll-question" placeholder="Cosa chiediamo?" class="w-full p-3 bg-slate-50 rounded-xl mb-3 border border-slate-200">
+            <div id="poll-options-container" class="space-y-2 overflow-y-auto mb-3">
+                <input type="text" placeholder="Opzione 1" class="poll-opt-input w-full p-2 bg-slate-50 rounded-lg border border-slate-200 text-sm">
+                <input type="text" placeholder="Opzione 2" class="poll-opt-input w-full p-2 bg-slate-50 rounded-lg border border-slate-200 text-sm">
+            </div>
+            <button onclick="addPollOption()" class="text-xs font-bold text-accent mb-4">+ Aggiungi Opzione</button>
+            <div class="flex gap-2"><button onclick="closeModal('modal-poll')" class="flex-1 py-3 bg-slate-100 rounded-xl font-bold">Annulla</button><button onclick="createPoll()" class="flex-1 py-3 bg-primary text-white rounded-xl font-bold">Pubblica</button></div>
+        </div>
+    </div>
+    <div id="modal-accom" class="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 hidden">
+        <div class="bg-white w-full max-w-md rounded-3xl p-6 shadow-2xl">
+            <h3 class="font-bold text-lg mb-4 text-primary">Alloggio</h3>
+            <input type="text" id="acc-name" placeholder="Nome Posto" class="w-full p-3 bg-slate-50 rounded-xl mb-3 border border-slate-200">
+            <input type="text" id="acc-address" placeholder="Indirizzo" class="w-full p-3 bg-slate-50 rounded-xl mb-3 border border-slate-200 text-sm">
+            <div class="flex gap-2 mb-4"><input type="date" id="acc-checkin" class="flex-1 p-3 bg-slate-50 rounded-xl border border-slate-200"><input type="date" id="acc-checkout" class="flex-1 p-3 bg-slate-50 rounded-xl border border-slate-200"></div>
+            <div class="flex gap-2"><button onclick="closeModal('modal-accom')" class="flex-1 py-3 bg-slate-100 rounded-xl">Annulla</button><button onclick="saveAccom()" class="flex-1 py-3 bg-primary text-white rounded-xl">Salva</button></div>
+        </div>
+    </div>
+    <div id="modal-packing" class="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 hidden">
+        <div class="bg-white w-full max-w-md rounded-3xl p-6 shadow-2xl">
+            <h3 class="font-bold text-lg mb-4 text-primary">Aggiungi Oggetto</h3>
+            <input type="text" id="pack-item" placeholder="Cosa serve?" class="w-full p-3 bg-slate-50 rounded-xl mb-3 border border-slate-200">
+            <label class="flex items-center gap-3 p-3 bg-slate-50 rounded-xl mb-4"><input type="checkbox" id="pack-private" class="w-5 h-5 rounded text-accent"> <span class="text-sm font-bold text-slate-600">Privato (Vedi solo tu)</span></label>
+            <div class="flex gap-2"><button onclick="closeModal('modal-packing')" class="flex-1 py-3 bg-slate-100 rounded-xl">Annulla</button><button onclick="savePackItem()" class="flex-1 py-3 bg-primary text-white rounded-xl">Aggiungi</button></div>
+        </div>
+    </div>
+    <div id="modal-trip-settings" class="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 hidden">
+        <div class="bg-white w-full max-w-sm rounded-3xl p-6 shadow-2xl">
+            <h3 class="font-bold text-xl mb-4 text-primary">Impostazioni Viaggio</h3>
+            <input type="text" id="settings-trip-name" class="w-full p-3 bg-slate-50 rounded-xl border border-slate-200 mb-4">
+            <button onclick="renameTrip()" class="w-full py-2 bg-primary text-white rounded-xl font-bold mb-4">Rinomina</button>
+            <div class="mb-4">
+                <label class="text-[10px] font-bold text-slate-400 uppercase">Membri</label>
+                <div id="members-list" class="mt-2 space-y-2 max-h-40 overflow-y-auto bg-slate-50 p-2 rounded-xl"></div>
+            </div>
+            <div id="admin-actions" class="hidden"><button onclick="deleteTrip()" class="w-full py-3 bg-red-50 text-red-500 font-bold rounded-xl hover:bg-red-100 transition">Elimina Viaggio Permanente</button></div>
+            <div id="user-actions" class="hidden"><button onclick="leaveTrip()" class="w-full py-3 bg-slate-100 text-slate-500 font-bold rounded-xl">Esci dal Gruppo</button></div>
+            <button onclick="closeModal('modal-trip-settings')" class="w-full mt-2 py-3 text-slate-400 text-sm font-bold">Chiudi</button>
+        </div>
+    </div>
 
-        <script src='https://cdn.jotfor.ms/agent/embedjs/019bbeaacdde71cabd921eb3e81723594430/embed.js'></script>
+    <script>
+        // --- 1. CONFIGURAZIONE & FIREBASE ---
+        const firebaseConfig = {
+            apiKey: "AIzaSyA_PiMMnIbnbAHkoWS2jk9-oLh64AINEbQ",
+            authDomain: "post-camino-hub.firebaseapp.com",
+            projectId: "post-camino-hub",
+            storageBucket: "post-camino-hub.firebasestorage.app",
+            messagingSenderId: "945225069153",
+            appId: "1:945225069153:web:be5a94013e7bf6c2d53020"
+        };
 
-        <script>
-            let deferredPrompt;
+        let db, storage, auth;
+        let currentUser = null;
+        let currentTripId = null;
+        let currentTripData = null;
+        let unsubscribeListeners = [];
+        let map = null;
+        let deferredPrompt;
 
-            // Ascolta l'evento di installazione del browser
-            window.addEventListener('beforeinstallprompt', (e) => {
-                // Impedisce la comparsa del banner standard (che a volte non esce)
-                e.preventDefault();
-                // Salva l'evento per usarlo dopo
-                deferredPrompt = e;
-                // Mostra il nostro banner personalizzato
-                const banner = document.getElementById('install-banner');
-                if (banner) banner.classList.remove('hidden');
+        document.addEventListener('DOMContentLoaded', () => {
+            if (typeof firebase !== 'undefined') {
+                firebase.initializeApp(firebaseConfig);
+                db = firebase.firestore();
+                storage = firebase.storage();
+                auth = firebase.auth();
+                initAuthObserver();
+            }
+        });
+
+        // Service Worker
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('./sw.js').catch(err => console.log("SW Error:", err));
             });
+        }
 
-            // Funzione chiamata dal tasto "INSTALLA" nel banner
-            async function executeInstall() {
-                if (deferredPrompt) {
-                    deferredPrompt.prompt();
-                    const { outcome } = await deferredPrompt.userChoice;
-                    console.log(`Risultato installazione: ${outcome}`);
-                    deferredPrompt = null;
-                    closeInstallBanner();
-                }
-            }
+        // Install Banner Logic
+        window.addEventListener('beforeinstallprompt', (e) => {
+            e.preventDefault();
+            deferredPrompt = e;
+            const banner = document.getElementById('install-banner');
+            if (banner) banner.classList.remove('hidden');
+        });
 
-            function closeInstallBanner() {
-                const banner = document.getElementById('install-banner');
-                if (banner) banner.classList.add('hidden');
-            }
-
-            // Nasconde il banner se l'app viene installata con successo
-            window.addEventListener('appinstalled', () => {
-                console.log('Travel Hub installata correttamente!');
+        async function executeInstall() {
+            if (deferredPrompt) {
+                deferredPrompt.prompt();
+                const { outcome } = await deferredPrompt.userChoice;
+                deferredPrompt = null;
                 closeInstallBanner();
+            }
+        }
+        function closeInstallBanner() { document.getElementById('install-banner').classList.add('hidden'); }
+
+        // --- 2. AUTH ---
+        function initAuthObserver() {
+            auth.onAuthStateChanged(user => {
+                if (user) {
+                    currentUser = user;
+                    document.getElementById('auth-screen').classList.add('hidden');
+                    document.getElementById('dashboard-screen').classList.remove('hidden');
+                    const displayName = user.displayName || user.email.split('@')[0];
+                    document.getElementById('user-name-display').innerText = displayName;
+                    document.getElementById('profile-name').innerText = displayName;
+                    document.getElementById('profile-email').innerText = user.email;
+                    loadUserTrips();
+                } else {
+                    currentUser = null;
+                    document.getElementById('auth-screen').classList.remove('hidden');
+                    document.getElementById('dashboard-screen').classList.add('hidden');
+                    document.getElementById('trip-app-screen').classList.add('hidden');
+                }
             });
+        }
 
-            // --- 1. CONFIGURAZIONE ---
-            if ('serviceWorker' in navigator) {
-                window.addEventListener('load', () => {
-                    navigator.serviceWorker.register('./sw.js');
+        let isLoginMode = true;
+        function toggleAuthMode() {
+            isLoginMode = !isLoginMode;
+            document.getElementById('auth-btn-text').innerText = isLoginMode ? "Accedi" : "Registrati";
+            document.getElementById('auth-toggle-btn').innerText = isLoginMode ? "Registrati" : "Accedi";
+            document.getElementById('name-field-container').style.display = isLoginMode ? 'none' : 'block';
+        }
+
+        function handleEmailAuth(e) {
+            e.preventDefault();
+            const email = document.getElementById('email').value;
+            const pass = document.getElementById('password').value;
+            const name = document.getElementById('fullname').value;
+            const errorDiv = document.getElementById('auth-error');
+            errorDiv.classList.add('hidden');
+
+            const promise = isLoginMode ? 
+                auth.signInWithEmailAndPassword(email, pass) : 
+                auth.createUserWithEmailAndPassword(email, pass).then(cred => cred.user.updateProfile({displayName: name}));
+
+            promise.catch(err => {
+                errorDiv.innerText = "Errore: " + err.message;
+                errorDiv.classList.remove('hidden');
+            });
+        }
+
+        function loginGoogle() {
+            const provider = new firebase.auth.GoogleAuthProvider();
+            auth.signInWithRedirect(provider); // Meglio redirect per mobile
+        }
+        function logout() { auth.signOut().then(() => location.reload()); }
+        function deleteAccount() { if(confirm("Sei sicuro?")) auth.currentUser.delete().then(()=>location.reload()); }
+
+        // --- 3. DASHBOARD ---
+        function loadUserTrips() {
+            const list = document.getElementById('trips-list');
+            list.innerHTML = `<div class="loader mx-auto col-span-full"></div>`;
+            db.collection('trips').where('members', 'array-contains', currentUser.uid).onSnapshot(snap => {
+                list.innerHTML = "";
+                if (snap.empty) { list.innerHTML = `<p class="col-span-full text-center text-slate-400 italic py-10">Nessun viaggio trovato.</p>`; return; }
+                snap.forEach(doc => {
+                    const d = doc.data();
+                    list.innerHTML += `<div onclick="openTrip('${doc.id}', '${d.name.replace(/'/g, "\\'")}', '${d.inviteCode}')" class="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 cursor-pointer hover:shadow-md transition relative">
+                        <div class="h-12 w-12 bg-blue-50 text-accent rounded-full flex items-center justify-center text-xl mb-4"><i class="fa-solid fa-map-location-dot"></i></div>
+                        <h3 class="font-bold text-xl text-primary truncate">${d.name}</h3>
+                        <p class="text-sm text-slate-400">${d.members ? d.members.length : 1} Partecipanti</p>
+                    </div>`;
                 });
-            }
+            });
+        }
 
-            const firebaseConfig = {
-                apiKey: "AIzaSyA_PiMMnIbnbAHkoWS2jk9-oLh64AINEbQ",
-                authDomain: "post-camino-hub.firebaseapp.com",
-                projectId: "post-camino-hub",
-                storageBucket: "post-camino-hub.firebasestorage.app",
-                messagingSenderId: "945225069153",
-                appId: "1:945225069153:web:be5a94013e7bf6c2d53020"
+        function createTrip() {
+            const n = document.getElementById('new-trip-name').value;
+            const city = document.getElementById('new-trip-city').value;
+            const date = document.getElementById('new-trip-date').value;
+            if(!n || !city) return alert("Inserisci Nome e Città");
+            
+            db.collection('trips').add({
+                name: n, city: city, startDate: date, inviteCode: Math.random().toString(36).substring(2,8).toUpperCase(),
+                createdBy: currentUser.uid, members: [currentUser.uid], 
+                memberDetails: [{uid: currentUser.uid, name: currentUser.displayName || currentUser.email}],
+                coords: {lat: 41.9, lng: 12.5} // Placeholder coords
+            }).then(() => closeModal('modal-create-trip'));
+        }
+
+        function joinTrip() {
+            const c = document.getElementById('join-trip-code').value.toUpperCase().trim();
+            db.collection('trips').where('inviteCode', '==', c).get().then(s => {
+                if(s.empty) return alert("Codice non valido");
+                const tid = s.docs[0].id;
+                db.collection('trips').doc(tid).update({
+                    members: firebase.firestore.FieldValue.arrayUnion(currentUser.uid),
+                    memberDetails: firebase.firestore.FieldValue.arrayUnion({uid: currentUser.uid, name: currentUser.displayName || currentUser.email})
+                }).then(() => closeModal('modal-join-trip'));
+            });
+        }
+
+        // --- 4. FEATURES VIAGGIO ---
+        function openTrip(tid, tname, tcode) {
+            currentTripId = tid;
+            document.getElementById('dashboard-screen').classList.add('hidden');
+            document.getElementById('trip-app-screen').classList.remove('hidden');
+            document.getElementById('current-trip-title').innerText = tname;
+            document.getElementById('share-code').innerText = tcode;
+            
+            // Listeners
+            unsubscribeListeners.push(db.collection('trips').doc(tid).onSnapshot(doc => {
+                if(!doc.exists) return exitTrip();
+                currentTripData = doc.data();
+                if(currentTripData.startDate) startCountdown(currentTripData.startDate);
+            }));
+            
+            loadTripData();
+            switchTab('view-itinerary');
+        }
+
+        function exitTrip() {
+            currentTripId = null;
+            unsubscribeListeners.forEach(u => u());
+            document.getElementById('trip-app-screen').classList.add('hidden');
+            document.getElementById('dashboard-screen').classList.remove('hidden');
+        }
+
+        function startCountdown(dateStr) {
+            const target = new Date(dateStr).getTime();
+            const txt = document.getElementById('countdown-text');
+            document.getElementById('countdown-bar').classList.remove('hidden');
+            const update = () => {
+                const dist = target - new Date().getTime();
+                if (dist < 0) return txt.innerText = "Siamo in viaggio!";
+                const d = Math.floor(dist / 86400000);
+                txt.innerText = `${d} giorni`;
             };
+            update();
+        }
 
-            let db, storage, auth;
-            let currentUser = null;
-            let currentTripId = null;
-            let currentTripData = null;
-            let unsubscribeListeners = [];
-            let map = null;
+        // Altre Funzioni Utilities
+        function switchTab(id) {
+            document.querySelectorAll('.tab-content').forEach(e => e.classList.add('hidden'));
+            document.getElementById(id).classList.remove('hidden');
+            if(id === 'view-map') setTimeout(initMap, 200);
+            document.querySelectorAll('.nav-btn').forEach(b => {
+                b.classList.toggle('active', b.dataset.target === id);
+                if(window.innerWidth >= 1024) b.classList.toggle('bg-slate-50', b.dataset.target === id);
+            });
+        }
 
-            // Colors for chat names
-            const chatColors = ['#ef4444', '#f59e0b', '#10b981', '#3b82f6', '#8b5cf6', '#ec4899'];
+        function openModal(id) { document.getElementById(id).classList.remove('hidden'); document.getElementById(id).classList.add('flex'); }
+        function closeModal(id) { document.getElementById(id).classList.add('hidden'); document.getElementById(id).classList.remove('flex'); }
+        function copyCode() { navigator.clipboard.writeText(document.getElementById('share-code').innerText).then(() => alert("Copiato!")); }
 
-            try {
-                if (firebaseConfig.projectId.includes("INCOLLA_QUI")) {
-                    alert("Inserisci chiavi Firebase!");
-                } else {
-                    firebase.initializeApp(firebaseConfig);
-                    db = firebase.firestore();
-                    storage = firebase.storage();
-                    auth = firebase.auth();
-                    initAuthObserver();
-                }
-            } catch (error) {
-                console.error("Init Error:", error);
-            }
+        // --- CHAT & BUDGET & PACKING (Base Logic) ---
+        function sendMessage(e) {
+            e.preventDefault();
+            const input = document.getElementById('chat-input');
+            if(!input.value.trim()) return;
+            db.collection('trips').doc(currentTripId).collection('chat').add({
+                text: input.value, uid: currentUser.uid, name: currentUser.displayName || "Utente", timestamp: firebase.firestore.FieldValue.serverTimestamp()
+            });
+            input.value = "";
+        }
 
-            // --- 2. AUTH & USER ---
-            function initAuthObserver() {
-                auth.onAuthStateChanged(user => {
-                    if (user) {
-                        currentUser = user;
-                        document.getElementById('auth-screen').classList.add('hidden');
-                        document.getElementById('dashboard-screen').classList.remove('hidden');
-                        // Use Display Name if available, else email
-                        const displayName = user.displayName || user.email.split('@')[0];
-                        document.getElementById('user-name-display').innerText = displayName;
-                        document.getElementById('profile-name').innerText = displayName;
-                        document.getElementById('profile-email').innerText = user.email;
-                        loadUserTrips();
-                    } else {
-                        currentUser = null;
-                        document.getElementById('auth-screen').classList.remove('hidden');
-                        document.getElementById('dashboard-screen').classList.add('hidden');
-                        document.getElementById('trip-app-screen').classList.add('hidden');
-                    }
-                });
-            }
+        function deleteSubItem(col, id) { if(confirm("Eliminare?")) db.collection('trips').doc(currentTripId).collection(col).doc(id).delete(); }
 
-            let isLoginMode = true;
+        function sendFeedback() {
+            const type = document.getElementById('feedback-type').value;
+            const text = document.getElementById('feedback-text').value;
+            if(!text) return;
+            db.collection('global_feedback').add({
+                type, message: text, uid: currentUser.uid, userName: currentUser.displayName, timestamp: firebase.firestore.FieldValue.serverTimestamp()
+            }).then(() => { alert("Grazie!"); closeModal('modal-feedback'); });
+        }
 
-            function toggleAuthMode() {
-                isLoginMode = !isLoginMode;
-                document.getElementById('auth-btn-text').innerText = isLoginMode ? "Accedi" : "Registrati";
-                document.getElementById('auth-toggle-text').innerText = isLoginMode ? "Non hai un account?" : "Hai già un account?";
-                document.getElementById('auth-toggle-btn').innerText = isLoginMode ? "Registrati" : "Accedi";
-                // Show/Hide Name Field
-                if (!isLoginMode) document.getElementById('name-field-container').classList.remove('hidden');
-                else document.getElementById('name-field-container').classList.add('hidden');
-            }
-
-            function handleEmailAuth(e) {
-                e.preventDefault();
-                const email = document.getElementById('email').value;
-                const pass = document.getElementById('password').value;
-                const name = document.getElementById('fullname').value;
-                const errorDiv = document.getElementById('auth-error');
-                errorDiv.classList.add('hidden');
-
-                if (!isLoginMode && !name) {
-                    errorDiv.innerText = "Inserisci Nome e Cognome";
-                    errorDiv.classList.remove('hidden');
-                    return;
-                }
-
-                if (isLoginMode) {
-                    auth.signInWithEmailAndPassword(email, pass).catch(err => {
-                        errorDiv.innerText = err.message;
-                        errorDiv.classList.remove('hidden');
-                    });
-                } else {
-                    auth.createUserWithEmailAndPassword(email, pass)
-                        .then(cred => {
-                            // Update profile with Name
-                            return cred.user.updateProfile({
-                                displayName: name
-                            });
-                        })
-                        .catch(err => {
-                            errorDiv.innerText = err.message;
-                            errorDiv.classList.remove('hidden');
-                        });
-                }
-            }
-
-            function loginGoogle() {
-                auth.signInWithPopup(new firebase.auth.GoogleAuthProvider()).catch(err => alert("Errore Google: " + err.message));
-            }
-
-            function logout() {
-                auth.signOut();
-                location.reload();
-            }
-
-            function openUserProfile() {
-                openModal('modal-user-settings');
-            }
-
-            function sendResetPassword() {
-                if (currentUser) auth.sendPasswordResetEmail(currentUser.email).then(() => alert("Email per reset password inviata!"));
-            }
-
-            function deleteAccount() {
-                if (confirm("Sei sicuro? Questa azione è irreversibile.")) firebase.auth().currentUser.delete().then(() => location.reload());
-            }
-
-            // --- 3. DASHBOARD & TRIP CREATION ---
-            function loadUserTrips() {
-                const list = document.getElementById('trips-list');
-                list.innerHTML = `<div class="loader mx-auto col-span-full"></div>`;
-                db.collection('trips').where('members', 'array-contains', currentUser.uid).onSnapshot(snapshot => {
-                    list.innerHTML = "";
-                    if (snapshot.empty) {
-                        list.innerHTML = `<p class="col-span-full text-center text-slate-400 italic">Non hai viaggi.</p>`;
-                        return;
-                    }
-                    snapshot.forEach(doc => {
-                        const d = doc.data();
-                        list.innerHTML += `<div onclick="openTrip('${doc.id}', '${d.name}', '${d.inviteCode}')" class="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 cursor-pointer trip-card relative"><div class="h-12 w-12 bg-blue-50 text-accent rounded-full flex items-center justify-center text-xl mb-4"><i class="fa-solid fa-map-location-dot"></i></div><h3 class="font-bold text-xl text-primary mb-1">${d.name}</h3><p class="text-sm text-slate-400">${d.members.length} Partecipanti</p></div>`;
-                    });
-                });
-            }
-
-            async function createTrip() {
-                const n = document.getElementById('new-trip-name').value;
-                const city = document.getElementById('new-trip-city').value;
-                const date = document.getElementById('new-trip-date').value;
-                if (!n || !city) {
-                    alert("Nome e Città obbligatori!");
-                    return;
-                }
-
-                let coords = {
-                    lat: 41.9,
-                    lng: 12.5
-                };
-                try {
-                    const res = await fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(city)}&count=1`);
-                    const data = await res.json();
-                    if (data.results && data.results.length > 0) coords = {
-                        lat: data.results[0].latitude,
-                        lng: data.results[0].longitude
-                    };
-                } catch (e) {}
-
-                db.collection('trips').add({
-                    name: n,
-                    city: city,
-                    startDate: date,
-                    coords: coords,
-                    inviteCode: Math.random().toString(36).substring(2, 8).toUpperCase(),
-                    createdBy: currentUser.uid,
-                    members: [currentUser.uid],
-                    memberDetails: [{
-                        uid: currentUser.uid,
-                        name: currentUser.displayName || currentUser.email
-                    }], // Store names
-                    createdAt: firebase.firestore.FieldValue.serverTimestamp()
-                }).then(() => {
-                    closeModal('modal-create-trip');
-                    document.getElementById('new-trip-name').value = "";
-                });
-            }
-
-            function joinTrip() {
-                const c = document.getElementById('join-trip-code').value.toUpperCase().trim();
-                if (!c) return;
-                db.collection('trips').where('inviteCode', '==', c).get().then(s => {
-                    if (s.empty) {
-                        alert("Codice errato");
-                        return;
-                    }
-                    const d = s.docs[0];
-                    if (!d.data().members.includes(currentUser.uid)) {
-                        db.collection('trips').doc(d.id).update({
-                            members: firebase.firestore.FieldValue.arrayUnion(currentUser.uid),
-                            memberDetails: firebase.firestore.FieldValue.arrayUnion({
-                                uid: currentUser.uid,
-                                name: currentUser.displayName || currentUser.email
-                            })
-                        }).then(() => {
-                            closeModal('modal-join-trip');
-                            alert("Unito!");
-                        });
-                    } else {
-                        alert("Già presente!");
-                    }
-                });
-            }
-
-            // --- 4. APP LOGIC ---
-            function openTrip(tid, tname, tcode) {
-                currentTripId = tid;
-                document.getElementById('dashboard-screen').classList.add('hidden');
-                document.getElementById('trip-app-screen').classList.remove('hidden');
-                document.getElementById('current-trip-title').innerText = tname;
-                document.getElementById('share-code').innerText = tcode;
-
-                unsubscribeListeners.push(db.collection('trips').doc(tid).onSnapshot(doc => {
-                    if (!doc.exists) {
-                        exitTrip();
-                        return;
-                    }
-                    currentTripData = doc.data();
-                    document.getElementById('current-trip-title').innerText = currentTripData.name;
-                    if (currentTripData.city && currentTripData.coords) loadWeather(currentTripData.coords);
-                    if (currentTripData.startDate) startCountdown(currentTripData.startDate);
-                }));
-
-                loadTripData();
-                switchTab('view-itinerary');
-            }
-
-            function exitTrip() {
-                currentTripId = null;
-                unsubscribeListeners.forEach(u => u());
-                unsubscribeListeners = [];
-                document.getElementById('trip-app-screen').classList.add('hidden');
-                document.getElementById('dashboard-screen').classList.remove('hidden');
-            }
-
-            // --- 5. FEATURES ---
-
-            // WEATHER & COUNTDOWN
-            async function loadWeather(coords) {
-                try {
-                    const res = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${coords.lat}&longitude=${coords.lng}&current_weather=true`);
-                    const data = await res.json();
-                    document.getElementById('weather-widget').classList.remove('hidden');
-                    document.getElementById('weather-temp').innerText = Math.round(data.current_weather.temperature) + "°";
-                } catch (e) {
-                    console.log(e);
-                }
-            }
-
-            function startCountdown(dateStr) {
-                const bar = document.getElementById('countdown-bar');
-                const txt = document.getElementById('countdown-text');
-                const target = new Date(dateStr).getTime();
-                bar.classList.remove('hidden');
-                const update = () => {
-                    const dist = target - new Date().getTime();
-                    if (dist < 0) {
-                        txt.innerText = "Iniziato!";
-                    } else {
-                        const d = Math.floor(dist / (86400000));
-                        const h = Math.floor((dist % 86400000) / 3600000);
-                        txt.innerText = `${d}g ${h}h`;
-                    }
-                };
-                setInterval(update, 60000);
-                update();
-            }
-
-            // MAP (Delete Feature)
-            function initMap() {
-                if (map) map.remove();
-                const coords = (currentTripData && currentTripData.coords) ? [currentTripData.coords.lat, currentTripData.coords.lng] : [41.9, 12.5];
-                map = L.map('map-container').setView(coords, 13);
-                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
-                map.on('contextmenu', onMapClick);
-                map.on('click', onMapClick);
-                loadMapMarkers();
-            }
-
-            function onMapClick(e) {
-                if (confirm("Aggiungere segnaposto?")) {
-                    const t = prompt("Nome:");
-                    if (t) db.collection('trips').doc(currentTripId).collection('markers').add({
-                        lat: e.latlng.lat,
-                        lng: e.latlng.lng,
-                        title: t
-                    });
-                }
-            }
-
-            function loadMapMarkers() {
-                db.collection('trips').doc(currentTripId).collection('markers').onSnapshot(snap => {
-                    map.eachLayer((layer) => {
-                        if (layer instanceof L.Marker) map.removeLayer(layer);
-                    });
-                    snap.forEach(doc => {
-                        const d = doc.data();
-                        // Popup with Delete Button
-                        const popupContent = `<div class='text-center'><b>${d.title}</b><br><button onclick="deleteSubItem('markers','${doc.id}')" class='text-red-500 text-xs font-bold mt-2 underline'>Elimina</button></div>`;
-                        L.marker([d.lat, d.lng]).addTo(map).bindPopup(popupContent);
-                    });
-                });
-            }
-
-            // CHAT (WhatsApp Style)
-            function sendMessage(e) {
-                e.preventDefault();
-                const input = document.getElementById('chat-input');
-                const text = input.value.trim();
-                if (!text) return;
-                db.collection('trips').doc(currentTripId).collection('chat').add({
-                    text: text,
-                    uid: currentUser.uid,
-                    name: currentUser.displayName || "Utente",
-                    timestamp: firebase.firestore.FieldValue.serverTimestamp()
-                });
-                input.value = "";
-            }
-
-            function getChatColor(uid) {
-                let hash = 0;
-                for (let i = 0; i < uid.length; i++) hash = uid.charCodeAt(i) + ((hash << 5) - hash);
-                return chatColors[Math.abs(hash) % chatColors.length];
-            }
-
-            function loadChat() {
+        // Funzione Placeholders per il resto caricamento dati
+        function loadTripData() {
+            const tripRef = db.collection('trips').doc(currentTripId);
+            // Chat
+            unsubscribeListeners.push(tripRef.collection('chat').orderBy('timestamp').onSnapshot(snap => {
                 const div = document.getElementById('chat-messages');
-                unsubscribeListeners.push(db.collection('trips').doc(currentTripId).collection('chat').orderBy('timestamp').onSnapshot(snap => {
-                    div.innerHTML = "";
-                    snap.forEach(doc => {
-                        const d = doc.data();
-                        const isMe = d.uid === currentUser.uid;
-                        const nameColor = getChatColor(d.uid);
-
-                        div.innerHTML += `
-                            <div class="flex flex-col mb-2 ${isMe ? 'items-end' : 'items-start'}">
-                                <div class="px-3 py-1.5 rounded-lg max-w-[80%] text-sm shadow-sm relative ${isMe ? 'bg-chatMe text-slate-800 rounded-tr-none' : 'bg-white text-slate-800 rounded-tl-none'}">
-                                    ${!isMe ? `<div class="text-[10px] font-bold mb-0.5" style="color:${nameColor}">${d.name}</div>` : ''}
-                                    ${d.text}
-                                </div>
-                            </div>
-                        `;
-                    });
-                    div.scrollTop = div.scrollHeight;
-                }));
-            }
-
-            // POLLS (Dynamic & Delete)
-            function addPollOption() {
-                const container = document.getElementById('poll-options-container');
-                const input = document.createElement('input');
-                input.type = 'text';
-                input.placeholder = `Opzione ${container.children.length + 1}`;
-                input.className = 'poll-opt-input w-full p-2 bg-slate-50 rounded-lg border border-slate-200 text-sm mt-2';
-                container.appendChild(input);
-            }
-
-            function createPoll() {
-                const q = document.getElementById('poll-question').value;
-                const inputs = document.querySelectorAll('.poll-opt-input');
-                const options = [];
-                inputs.forEach(inp => {
-                    if (inp.value.trim()) options.push({
-                        text: inp.value.trim(),
-                        votes: []
-                    });
+                div.innerHTML = "";
+                snap.forEach(doc => {
+                    const d = doc.data();
+                    const isMe = d.uid === currentUser.uid;
+                    div.innerHTML += `<div class="flex flex-col mb-2 ${isMe ? 'items-end' : 'items-start'}">
+                        <div class="px-3 py-1.5 rounded-lg max-w-[80%] text-sm shadow-sm ${isMe ? 'bg-chatMe rounded-tr-none' : 'bg-white rounded-tl-none'}">
+                            ${!isMe ? `<div class="text-[10px] font-bold text-accent">${d.name}</div>` : ''} ${d.text}
+                        </div>
+                    </div>`;
                 });
-
-                if (!q || options.length < 2) {
-                    alert("Inserisci domanda e almeno 2 opzioni");
-                    return;
-                }
-
-                db.collection('trips').doc(currentTripId).collection('polls').add({
-                    question: q,
-                    options: options,
-                    createdBy: currentUser.uid
+                div.scrollTop = div.scrollHeight;
+            }));
+            // Itinerario
+            unsubscribeListeners.push(tripRef.collection('itinerary').onSnapshot(snap => {
+                const list = document.getElementById('itinerary-list'); list.innerHTML = "";
+                snap.forEach(d => {
+                    const data = d.data();
+                    list.innerHTML += `<div class="bg-white p-4 rounded-xl border relative shadow-sm">
+                        <h4 class="font-bold">${data.title}</h4><p class="text-xs text-slate-500">${data.date} ${data.time}</p>
+                        <button onclick="deleteSubItem('itinerary','${d.id}')" class="absolute top-2 right-2 text-slate-300"><i class="fa-solid fa-trash"></i></button>
+                    </div>`;
                 });
-                closeModal('modal-poll');
-            }
+            }));
+        }
 
-            function loadPolls() {
-                const div = document.getElementById('polls-list');
-                unsubscribeListeners.push(db.collection('trips').doc(currentTripId).collection('polls').onSnapshot(snap => {
-                    div.innerHTML = "";
-                    snap.forEach(doc => {
-                        const d = doc.data();
-                        let html = `<div class="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm relative">
-                            <button onclick="deleteSubItem('polls','${doc.id}')" class="absolute top-2 right-2 text-slate-200 hover:text-red-500"><i class="fa-solid fa-trash"></i></button>
-                            <h4 class="font-bold text-primary mb-3">${d.question}</h4><div class="space-y-2">`;
-                        d.options.forEach((opt, idx) => {
-                            const votes = opt.votes ? opt.votes.length : 0;
-                            const hasVoted = opt.votes && opt.votes.includes(currentUser.uid);
-                            html += `<button onclick="votePoll('${doc.id}', ${idx})" class="w-full text-left relative h-10 rounded-lg overflow-hidden bg-slate-50 border ${hasVoted ? 'border-accent' : 'border-slate-200'}">
-                                    <div class="absolute top-0 left-0 h-full bg-blue-100 transition-all" style="width: ${(votes * 10)}%"></div>
-                                    <div class="absolute top-0 left-0 h-full w-full flex justify-between items-center px-3 z-10">
-                                        <span class="text-xs font-bold ${hasVoted ? 'text-accent' : 'text-slate-600'}">${opt.text}</span><span class="text-xs font-bold text-slate-400">${votes}</span>
-                                    </div></button>`;
-                        });
-                        html += `</div></div>`;
-                        div.innerHTML += html;
-                    });
-                }));
-            }
+        // Inizializzazione Mappa Semplice
+        function initMap() {
+            if (map) map.remove();
+            map = L.map('map-container').setView([41.9, 12.5], 10);
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+        }
+    </script>
 
-            function votePoll(pid, idx) {
-                const ref = db.collection('trips').doc(currentTripId).collection('polls').doc(pid);
-                ref.get().then(doc => {
-                    let d = doc.data();
-                    d.options.forEach(o => {
-                        if (o.votes) o.votes = o.votes.filter(u => u !== currentUser.uid);
-                    }); // Remove previous vote
-                    if (!d.options[idx].votes) d.options[idx].votes = [];
-                    d.options[idx].votes.push(currentUser.uid);
-                    ref.update({
-                        options: d.options
-                    });
-                });
-            }
-
-            // EXPENSES (Edit & Delete)
-            function openExpenseModal(type, editData = null) {
-                document.getElementById('exp-modal-title').innerText = editData ? "Modifica Spesa" : "Nuova Spesa";
-                document.getElementById('exp-current-type').value = type;
-                document.getElementById('exp-edit-id').value = editData ? editData.id : "";
-
-                // Toggle UI based on type
-                document.getElementById('btn-type-personal').className = type === 'personal' ? "flex-1 py-1 rounded text-xs font-bold bg-white shadow-sm" : "flex-1 py-1 rounded text-xs font-bold text-slate-500";
-                document.getElementById('btn-type-group').className = type === 'group' ? "flex-1 py-1 rounded text-xs font-bold bg-white shadow-sm" : "flex-1 py-1 rounded text-xs font-bold text-slate-500";
-
-                // Categories only for Personal
-                document.getElementById('exp-categories').style.display = type === 'personal' ? 'flex' : 'none';
-
-                // Fill Data if editing
-                if (editData) {
-                    document.getElementById('exp-title').value = editData.title;
-                    document.getElementById('exp-amount').value = editData.amount;
-                    if (type === 'personal') selectCategory(document.querySelector(`button[onclick*='${editData.category}']`) || document.querySelector('.cat-btn'), editData.category);
-                    document.getElementById('exp-type-selector').style.display = 'none'; // Lock type when editing
-                } else {
-                    document.getElementById('exp-title').value = "";
-                    document.getElementById('exp-amount').value = "";
-                    document.getElementById('exp-type-selector').style.display = 'flex';
-                }
-                openModal('modal-expense');
-            }
-
-            function switchExpType(type) {
-                openExpenseModal(type);
-            }
-
-            function saveExpenseFromModal() {
-                const type = document.getElementById('exp-current-type').value;
-                const id = document.getElementById('exp-edit-id').value;
-                const t = document.getElementById('exp-title').value;
-                const a = parseFloat(document.getElementById('exp-amount').value.replace(',', '.'));
-                if (!t || isNaN(a)) return;
-
-                const collection = type === 'personal' ? 'expenses' : 'group_expenses';
-                const data = {
-                    title: t,
-                    amount: a
-                };
-
-                if (type === 'personal') {
-                    data.category = document.getElementById('exp-category').value;
-                    data.userId = currentUser.uid;
-                } else {
-                    data.paidBy = currentUser.uid;
-                    data.paidByName = currentUser.displayName || currentUser.email.split('@')[0];
-                }
-                data.timestamp = firebase.firestore.FieldValue.serverTimestamp();
-
-                if (id) {
-                    // UPDATE
-                    db.collection('trips').doc(currentTripId).collection(collection).doc(id).update(data);
-                } else {
-                    // CREATE
-                    db.collection('trips').doc(currentTripId).collection(collection).add(data);
-                }
-                closeModal('modal-expense');
-            }
-
-            // LOADERS (With Delete/Edit Logic)
-            function loadTripData() {
-                const tripRef = db.collection('trips').doc(currentTripId);
-
-                // Itinerary
-                unsubscribeListeners.push(tripRef.collection('itinerary').orderBy('date').onSnapshot(snap => {
-                    const list = document.getElementById('itinerary-list');
-                    list.innerHTML = "";
-                    let ev = [];
-                    snap.forEach(d => ev.push({
-                        id: d.id,
-                        ...d.data()
-                    }));
-                    ev.sort((a, b) => (a.date != b.date) ? a.date.localeCompare(b.date) : (a.time || "").localeCompare(b.time || ""));
-                    ev.forEach(d => {
-                        const day = new Date(d.date).toLocaleDateString('it-IT', {
-                            day: 'numeric',
-                            month: 'short'
-                        });
-                        list.innerHTML += `<div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-100 relative group"><div class="mb-2"><span class="text-xs font-bold bg-slate-100 px-2 py-1 rounded mr-2">${day}</span><span class="text-xs font-bold text-accent bg-blue-50 px-2 py-1 rounded">${d.time || '--:--'}</span></div><h4 class="font-bold text-lg text-primary">${d.title}</h4><p class="text-sm text-slate-500 mt-1">${d.desc || ''}</p><button onclick="deleteSubItem('itinerary','${d.id}')" class="absolute top-2 right-2 text-slate-200 hover:text-danger"><i class="fa-solid fa-trash"></i></button></div>`;
-                    });
-                }));
-
-                // Personal Expenses (Edit/Delete)
-                unsubscribeListeners.push(tripRef.collection('settings').doc(currentUser.uid).onSnapshot(doc => {
-                    window.currentTotalBudget = doc.exists ? (doc.data().total || 0) : 0;
-                    updateBudgetUI();
-                }));
-                unsubscribeListeners.push(tripRef.collection('expenses').where('userId', '==', currentUser.uid).onSnapshot(snap => {
-                    const list = document.getElementById('expense-list');
-                    list.innerHTML = "";
-                    let spent = 0;
-                    let arr = [];
-                    snap.forEach(d => arr.push({
-                        id: d.id,
-                        ...d.data()
-                    }));
-                    arr.sort((a, b) => (b.timestamp ? b.timestamp.toMillis() : 0) - (a.timestamp ? a.timestamp.toMillis() : 0));
-                    arr.forEach(d => {
-                        spent += d.amount;
-                        let icon = '<i class="fa-solid fa-receipt"></i>';
-                        let bg = 'bg-slate-100 text-slate-500';
-                        if (d.category === 'food') {
-                            icon = '<i class="fa-solid fa-utensils"></i>';
-                            bg = 'bg-orange-100 text-orange-500';
-                        }
-                        if (d.category === 'transport') {
-                            icon = '<i class="fa-solid fa-bus"></i>';
-                            bg = 'bg-blue-100 text-blue-500';
-                        }
-                        if (d.category === 'sleep') {
-                            icon = '<i class="fa-solid fa-bed"></i>';
-                            bg = 'bg-purple-100 text-purple-500';
-                        }
-
-                        // Passing Object to Edit via encoded JSON is risky, simple ID + fetch is safer, but for simple app passing fields is ok
-                        // Using encoded JSON string in onclick
-                        const editObj = JSON.stringify({
-                            id: d.id,
-                            title: d.title,
-                            amount: d.amount,
-                            category: d.category
-                        }).replace(/"/g, "&quot;");
-
-                        list.innerHTML += `
-                        <div class="flex justify-between p-3 bg-slate-50 rounded-xl items-center mb-2">
-                            <div class="flex items-center gap-3"><div class="h-8 w-8 rounded-full flex items-center justify-center ${bg} text-xs">${icon}</div><span class="text-sm font-bold text-slate-700">${d.title}</span></div>
-                            <div class="flex items-center gap-2">
-                                <span class="font-bold text-primary">-€${d.amount.toFixed(2)}</span>
-                                <button onclick="openExpenseModal('personal', ${editObj})" class="text-slate-300 hover:text-accent"><i class="fa-solid fa-pen"></i></button>
-                                <button onclick="deleteSubItem('expenses','${d.id}')" class="text-slate-300 hover:text-danger"><i class="fa-solid fa-trash"></i></button>
-                            </div>
-                        </div>`;
-                    });
-                    window.currentSpent = spent;
-                    updateBudgetUI();
-                }));
-
-                // Group Expenses (Edit/Delete)
-                unsubscribeListeners.push(tripRef.collection('group_expenses').orderBy('timestamp', 'desc').onSnapshot(snap => {
-                    const div = document.getElementById('group-expense-list');
-                    div.innerHTML = "";
-                    snap.forEach(doc => {
-                        const d = doc.data();
-                        const isMe = d.paidBy === currentUser.uid;
-                        const editObj = JSON.stringify({
-                            id: doc.id,
-                            title: d.title,
-                            amount: d.amount
-                        }).replace(/"/g, "&quot;");
-                        const buttons = isMe ? `<button onclick="openExpenseModal('group', ${editObj})" class="text-slate-400 hover:text-accent"><i class="fa-solid fa-pen"></i></button><button onclick="deleteSubItem('group_expenses','${doc.id}')" class="text-slate-400 hover:text-danger"><i class="fa-solid fa-trash"></i></button>` : '';
-                        div.innerHTML += `<div class="flex justify-between p-3 bg-purple-50 border border-purple-100 rounded-xl items-center mb-2"><div><p class="text-sm font-bold text-slate-700">${d.title}</p><p class="text-[10px] text-purple-600">Pagato da: ${isMe ? 'TE' : d.paidByName}</p></div><div class="flex items-center gap-3"><span class="font-bold text-primary">€${d.amount.toFixed(2)}</span>${buttons}</div></div>`;
-                    });
-                }));
-
-                // Accommodations
-                unsubscribeListeners.push(tripRef.collection('accommodations').orderBy('checkIn').onSnapshot(snap => {
-                    const list = document.getElementById('accom-list');
-                    list.innerHTML = "";
-                    snap.forEach(doc => {
-                        const d = doc.data();
-                        let statusColor = 'bg-slate-100 text-slate-500';
-                        if (d.status === 'Prenotato') statusColor = 'bg-blue-100 text-blue-600';
-                        if (d.status === 'Pagato') statusColor = 'bg-purple-100 text-purple-600';
-                        if (d.status === 'Confermato') statusColor = 'bg-green-100 text-green-600';
-                        const inDate = new Date(d.checkIn).toLocaleDateString('it-IT', {
-                            day: 'numeric',
-                            month: 'short'
-                        });
-                        const outDate = new Date(d.checkOut).toLocaleDateString('it-IT', {
-                            day: 'numeric',
-                            month: 'short'
-                        });
-                        list.innerHTML += `<div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-100 relative"><div class="flex justify-between items-start mb-2"><span onclick="cycleStatus('${doc.id}', '${d.status}')" class="text-[10px] font-bold uppercase px-2 py-1 rounded cursor-pointer select-none hover:opacity-80 transition ${statusColor}">${d.status}</span><button onclick="deleteSubItem('accommodations','${doc.id}')" class="text-slate-200 hover:text-danger"><i class="fa-solid fa-trash"></i></button></div><h4 class="font-bold text-lg text-primary leading-tight mb-1">${d.name}</h4><p class="text-xs text-slate-400 mb-3"><i class="fa-solid fa-location-dot mr-1"></i>${d.address}</p><div class="flex items-center gap-2 text-sm text-slate-600 bg-slate-50 p-2 rounded-lg"><i class="fa-regular fa-calendar"></i> ${inDate} <i class="fa-solid fa-arrow-right text-xs text-slate-300"></i> ${outDate}</div></div>`;
-                    });
-                }));
-
-                // Docs (Delete)
-                unsubscribeListeners.push(tripRef.collection('documents').orderBy('timestamp', 'desc').onSnapshot(snap => {
-                    const list = document.getElementById('docs-list');
-                    list.innerHTML = "";
-                    snap.forEach(doc => {
-                        const d = doc.data();
-                        list.innerHTML += `<div class="relative group"><a href="${d.url}" target="_blank" class="block bg-white p-4 rounded-2xl shadow-sm border border-slate-100 text-center"><i class="fa-solid ${d.type.includes('pdf')?'fa-file-pdf text-red-500':'fa-file-image text-purple-500'} text-3xl mb-2"></i><div class="text-xs font-bold truncate">${d.name}</div></a><button onclick="deleteSubItem('documents','${doc.id}')" class="absolute top-2 right-2 text-slate-300 hover:text-danger bg-white rounded-full p-1 shadow-sm"><i class="fa-solid fa-trash"></i></button></div>`;
-                    });
-                }));
-
-                // Photos (Delete)
-                unsubscribeListeners.push(db.collection('trips').doc(currentTripId).collection('photos').orderBy('timestamp', 'desc').onSnapshot(snap => {
-                    const div = document.getElementById('photos-list');
-                    div.innerHTML = "";
-                    snap.forEach(doc => {
-                        const d = doc.data();
-                        div.innerHTML += `<div class="aspect-square bg-slate-100 rounded-xl overflow-hidden relative group"><img src="${d.url}" class="w-full h-full object-cover"><button onclick="deleteSubItem('photos','${doc.id}')" class="absolute top-2 right-2 text-white bg-black/50 rounded-full p-1.5 hover:bg-red-500 transition"><i class="fa-solid fa-trash text-xs"></i></button></div>`;
-                    });
-                }));
-
-                // Packing
-                unsubscribeListeners.push(tripRef.collection('packing').orderBy('timestamp').onSnapshot(snap => {
-                    const list = document.getElementById('packing-list');
-                    list.innerHTML = "";
-                    let c = 0,
-                        t = 0;
-                    snap.forEach(doc => {
-                        const d = doc.data();
-                        if (!d.isPrivate || (d.isPrivate && d.ownerId === currentUser.uid)) {
-                            t++;
-                            if (d.checked) c++;
-                            const lock = d.isPrivate ? '<i class="fa-solid fa-lock text-xs text-slate-400 mr-2"></i>' : '';
-                            const btn = (d.ownerId === currentUser.uid) ? `<button onclick="event.stopPropagation(); deleteSubItem('packing','${doc.id}')" class="text-slate-200 hover:text-danger px-2"><i class="fa-solid fa-trash text-xs"></i></button>` : '';
-                            list.innerHTML += `<div onclick="togglePackItem('${doc.id}', ${d.checked})" class="flex items-center p-3 bg-white border ${d.checked?'border-success/50 bg-green-50/50':'border-slate-100'} rounded-xl cursor-pointer"><div class="w-5 h-5 rounded-full border-2 ${d.checked?'bg-success border-success':'border-slate-300'} flex items-center justify-center mr-3"><i class="fa-solid fa-check text-white text-[10px] ${d.checked?'':'hidden'}"></i></div><div class="flex-1 flex items-center">${lock}<span class="text-sm ${d.checked?'line-through text-slate-400':''}">${d.text}</span></div>${btn}</div>`;
-                        }
-                    });
-                    document.getElementById('packing-progress').style.width = t > 0 ? `${(c/t)*100}%` : '0%';
-                    document.getElementById('packing-percent').innerText = t > 0 ? Math.round((c / t) * 100) + '%' : '0%';
-                }));
-
-                loadChat();
-                loadPolls();
-            }
-
-            // --- 6. UTILS & UI ---
-            function switchTab(id) {
-                document.querySelectorAll('.tab-content').forEach(e => e.classList.add('hidden'));
-                document.getElementById(id).classList.remove('hidden');
-                if (id === 'view-map') setTimeout(() => initMap(), 200);
-                document.querySelectorAll('.nav-btn').forEach(b => {
-                    b.classList.remove('active', 'bg-slate-50', 'text-primary');
-                    if (b.dataset.target === id) {
-                        b.classList.add('active');
-                        if (window.innerWidth >= 1024) b.classList.add('bg-slate-50', 'text-primary');
-                    }
-                });
-            }
-
-            function toggleSocialMode(mode) {
-                document.getElementById('social-chat').classList.add('hidden');
-                document.getElementById('social-polls').classList.add('hidden');
-                document.getElementById('btn-mode-chat').classList.replace('bg-slate-100', 'text-slate-500');
-                document.getElementById('btn-mode-polls').classList.replace('bg-slate-100', 'text-slate-500');
-                document.getElementById(`social-${mode}`).classList.remove('hidden');
-                document.getElementById(`btn-mode-${mode}`).classList.add('bg-slate-100');
-                document.getElementById(`btn-mode-${mode}`).classList.remove('text-slate-500');
-            }
-
-            function toggleBudgetMode(mode) {
-                document.getElementById('budget-personal-section').classList.add('hidden');
-                document.getElementById('budget-group-section').classList.add('hidden');
-                document.getElementById('btn-budget-personal').classList.replace('bg-slate-100', 'text-slate-500');
-                document.getElementById('btn-budget-group').classList.replace('bg-slate-100', 'text-slate-500');
-                document.getElementById(`budget-${mode}-section`).classList.remove('hidden');
-                document.getElementById(`btn-budget-${mode}`).classList.add('bg-slate-100');
-                document.getElementById(`btn-budget-${mode}`).classList.remove('text-slate-500');
-            }
-
-            function openModal(id) {
-                document.getElementById(id).classList.remove('hidden');
-                document.getElementById(id).classList.add('flex');
-            }
-
-            function closeModal(id) {
-                document.getElementById(id).classList.remove('flex');
-                document.getElementById(id).classList.add('hidden');
-            }
-
-            function openSettings() {
-                document.getElementById('settings-budget').value = window.currentTotalBudget || 0;
-                openModal('modal-settings');
-            }
-
-            function openTripSettings() {
-                if (!currentTripData) return;
-                document.getElementById('settings-trip-name').value = currentTripData.name;
-
-                // Populate Members list for removal
-                const memList = document.getElementById('members-list');
-                memList.innerHTML = "";
-                const isAdmin = currentTripData.createdBy === currentUser.uid;
-
-                // Use memberDetails if available, else fallback to members (uids) but we can't show names easily then.
-                // Using logic: if memberDetails exists, use it.
-                const members = currentTripData.memberDetails || currentTripData.members.map(uid => ({
-                    uid,
-                    name: "Utente"
-                }));
-
-                members.forEach(m => {
-                    let btn = '';
-                    if (isAdmin && m.uid !== currentUser.uid) {
-                        btn = `<button onclick="removeMember('${m.uid}')" class="text-xs text-red-500 hover:underline">Rimuovi</button>`;
-                    }
-                    const isMe = m.uid === currentUser.uid ? " (Tu)" : "";
-                    memList.innerHTML += `<div class="flex justify-between items-center bg-white p-2 rounded mb-1 text-sm"><span>${m.name}${isMe}</span>${btn}</div>`;
-                });
-
-                if (isAdmin) {
-                    document.getElementById('admin-actions').classList.remove('hidden');
-                    document.getElementById('user-actions').classList.add('hidden');
-                } else {
-                    document.getElementById('admin-actions').classList.add('hidden');
-                    document.getElementById('user-actions').classList.remove('hidden');
-                }
-                openModal('modal-trip-settings');
-            }
-
-            // Settings Actions
-            function renameTrip() {
-                const n = document.getElementById('settings-trip-name').value;
-                if (n) db.collection('trips').doc(currentTripId).update({
-                    name: n
-                }).then(() => closeModal('modal-trip-settings'));
-            }
-
-            function deleteTrip() {
-                if (prompt(`Conferma scrivendo: ${currentTripData.name}`) === currentTripData.name) db.collection('trips').doc(currentTripId).delete().then(() => closeModal('modal-trip-settings'));
-            }
-
-            function leaveTrip() {
-                if (confirm("Vuoi uscire?")) db.collection('trips').doc(currentTripId).update({
-                    members: firebase.firestore.FieldValue.arrayRemove(currentUser.uid)
-                }).then(() => {
-                    closeModal('modal-trip-settings');
-                    exitTrip();
-                });
-            }
-
-            function removeMember(uid) {
-                if (confirm("Rimuovere questo utente?")) {
-                    // We need to remove from members array AND memberDetails array. 
-                    // Since removing object from array in firestore requires exact match, we do a read-modify-write here for safety.
-                    const ref = db.collection('trips').doc(currentTripId);
-                    ref.get().then(doc => {
-                        let d = doc.data();
-                        d.members = d.members.filter(m => m !== uid);
-                        if (d.memberDetails) d.memberDetails = d.memberDetails.filter(m => m.uid !== uid);
-                        ref.update({
-                            members: d.members,
-                            memberDetails: d.memberDetails
-                        }).then(() => openTripSettings()); // refresh list
-                    });
-                }
-            }
-
-            function saveSettings() {
-                db.collection('trips').doc(currentTripId).collection('settings').doc(currentUser.uid).set({
-                    total: parseFloat(document.getElementById('settings-budget').value)
-                }, {
-                    merge: true
-                });
-                closeModal('modal-settings');
-            }
-
-            function savePackItem() {
-                const t = document.getElementById('pack-item').value;
-                const p = document.getElementById('pack-private').checked;
-                if (!t) return;
-                db.collection('trips').doc(currentTripId).collection('packing').add({
-                    text: t,
-                    checked: false,
-                    isPrivate: p,
-                    ownerId: currentUser.uid,
-                    timestamp: firebase.firestore.FieldValue.serverTimestamp()
-                });
-                document.getElementById('pack-item').value = "";
-                closeModal('modal-packing');
-            }
-
-            function saveAccom() {
-                const n = document.getElementById('acc-name').value;
-                if (!n) return;
-                db.collection('trips').doc(currentTripId).collection('accommodations').add({
-                    name: n,
-                    address: document.getElementById('acc-address').value,
-                    checkIn: document.getElementById('acc-checkin').value,
-                    checkOut: document.getElementById('acc-checkout').value,
-                    status: 'Proposto',
-                    timestamp: firebase.firestore.FieldValue.serverTimestamp()
-                });
-                closeModal('modal-accom');
-            }
-
-            function saveItinerary() {
-                const t = document.getElementById('itin-title').value;
-                if (!t) return;
-                db.collection('trips').doc(currentTripId).collection('itinerary').add({
-                    title: t,
-                    date: document.getElementById('itin-date').value,
-                    time: document.getElementById('itin-time').value,
-                    desc: document.getElementById('itin-desc').value
-                });
-                closeModal('modal-itinerary');
-            }
-
-            function togglePackItem(id, s) {
-                db.collection('trips').doc(currentTripId).collection('packing').doc(id).update({
-                    checked: !s
-                });
-            }
-
-            function deleteSubItem(col, id) {
-                if (confirm("Eliminare definitivamente?")) db.collection('trips').doc(currentTripId).collection(col).doc(id).delete();
-            }
-
-            function updateBudgetUI() {
-                const t = window.currentTotalBudget || 0;
-                const r = t - (window.currentSpent || 0);
-                document.getElementById('budget-remaining').innerText = `€${r.toFixed(2)}`;
-                document.getElementById('budget-total-display').innerText = `/ €${t}`;
-            }
-
-            function selectCategory(b, c) {
-                document.querySelectorAll('.cat-btn').forEach(e => e.classList.remove('ring-2', 'ring-accent'));
-                b.classList.add('ring-2', 'ring-accent');
-                document.getElementById('exp-category').value = c;
-            }
-
-            function copyCode() {
-                navigator.clipboard.writeText(document.getElementById('share-code').innerText).then(() => alert("Copiato!"));
-            }
-
-            function cycleStatus(id, currentStatus) {
-                const s = ['Proposto', 'Prenotato', 'Pagato', 'Confermato'];
-                db.collection('trips').doc(currentTripId).collection('accommodations').doc(id).update({
-                    status: s[(s.indexOf(currentStatus) + 1) % s.length]
-                });
-            }
-
-            function uploadPhoto(input) {
-                const f = input.files[0];
-                if (!f) return;
-                document.getElementById('photo-upload-bar').classList.remove('hidden');
-                storage.ref().child(`trips/${currentTripId}/photos/${Date.now()}_${f.name}`).put(f).then(s => s.ref.getDownloadURL().then(u => {
-                    db.collection('trips').doc(currentTripId).collection('photos').add({
-                        url: u,
-                        timestamp: firebase.firestore.FieldValue.serverTimestamp(),
-                        user: currentUser.displayName
-                    });
-                    document.getElementById('photo-upload-bar').classList.add('hidden');
-                }));
-            }
-
-            function uploadFile(input) {
-                const f = input.files[0];
-                if (!f) return;
-                document.getElementById('upload-bar').classList.remove('hidden');
-                storage.ref().child(`trips/${currentTripId}/${Date.now()}_${f.name}`).put(f).then(s => s.ref.getDownloadURL().then(u => {
-                    db.collection('trips').doc(currentTripId).collection('documents').add({
-                        name: f.name,
-                        url: u,
-                        type: f.type,
-                        timestamp: firebase.firestore.FieldValue.serverTimestamp()
-                    });
-                    document.getElementById('upload-bar').classList.add('hidden');
-                }));
-            }
-
-
-            // --- FEEDBACK SYSTEM ---
-            function sendFeedback() {
-                const type = document.getElementById('feedback-type').value;
-                const text = document.getElementById('feedback-text').value.trim();
-
-                if (!text) {
-                    alert("Scrivi un messaggio prima di inviare.");
-                    return;
-                }
-
-                db.collection('global_feedback').add({
-                    type: type,
-                    message: text,
-                    uid: currentUser.uid,
-                    userName: currentUser.displayName || currentUser.email,
-                    timestamp: firebase.firestore.FieldValue.serverTimestamp(),
-                    userAgent: navigator.userAgent
-                }).then(() => {
-                    alert("Messaggio inviato! Grazie per il contributo.");
-                    document.getElementById('feedback-text').value = "";
-                    closeModal('modal-feedback');
-                }).catch(err => {
-                    console.error(err);
-                    alert("Errore nell'invio: " + err.message);
-                });
-            }
-        </script>
-    </body>
-
-
+    <script src='https://cdn.jotfor.ms/agent/embedjs/019bbeaacdde71cabd921eb3e81723594430/embed.js'></script>
+</body>
 </html>
