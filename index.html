@@ -484,8 +484,14 @@
 
         function loginGoogle() {
             const provider = new firebase.auth.GoogleAuthProvider();
-            auth.signInWithRedirect(provider); // Meglio redirect per mobile
+            auth.signInWithPopup(provider).catch(err => {
+                console.error("Errore login Google:", err);
+                const errorDiv = document.getElementById('auth-error');
+                errorDiv.innerText = "Errore: " + err.message;
+                errorDiv.classList.remove('hidden');
+            });
         }
+        
         function logout() { auth.signOut().then(() => location.reload()); }
         function deleteAccount() { if(confirm("Sei sicuro?")) auth.currentUser.delete().then(()=>location.reload()); }
 
