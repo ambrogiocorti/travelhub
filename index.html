@@ -56,22 +56,6 @@
 
 <body class="bg-background text-secondary font-sans h-screen overflow-hidden selection:bg-accent selection:text-white">
 
-    <div id="install-banner" class="hidden fixed top-0 left-0 w-full z-[100] p-4 animate-bounce">
-        <div class="bg-primary text-white p-4 rounded-2xl shadow-2xl border border-accent/30 flex items-center justify-between">
-            <div class="flex items-center gap-3">
-                <div class="h-10 w-10 bg-white/10 rounded-xl flex items-center justify-center text-xl"><i class="fa-solid fa-cloud-arrow-down text-accent"></i></div>
-                <div>
-                    <p class="text-xs font-bold leading-tight">Installa Travel Hub</p>
-                    <p class="text-[10px] text-slate-400">Accedi più velocemente ai tuoi viaggi</p>
-                </div>
-            </div>
-            <div class="flex gap-2">
-                <button onclick="closeInstallBanner()" class="px-3 py-2 text-[10px] font-bold text-slate-400">Dopo</button>
-                <button onclick="executeInstall()" class="bg-accent px-4 py-2 rounded-lg text-[10px] font-bold shadow-lg shadow-blue-500/20">INSTALLA</button>
-            </div>
-        </div>
-    </div>
-
     <section id="auth-screen" class="h-full w-full flex items-center justify-center p-4 bg-slate-900 absolute inset-0 z-50">
         <div class="bg-white w-full max-w-md p-8 rounded-[32px] shadow-2xl relative overflow-hidden">
             <div class="absolute top-0 right-0 w-32 h-32 bg-accent opacity-10 rounded-full -mr-10 -mt-10"></div>
@@ -450,24 +434,6 @@
                 navigator.serviceWorker.register('./sw.js').catch(err => console.log("SW Error:", err));
             });
         }
-
-        // Install Banner Logic
-        window.addEventListener('beforeinstallprompt', (e) => {
-            e.preventDefault();
-            deferredPrompt = e;
-            const banner = document.getElementById('install-banner');
-            if (banner) banner.classList.remove('hidden');
-        });
-
-        async function executeInstall() {
-            if (deferredPrompt) {
-                deferredPrompt.prompt();
-                const { outcome } = await deferredPrompt.userChoice;
-                deferredPrompt = null;
-                closeInstallBanner();
-            }
-        }
-        function closeInstallBanner() { document.getElementById('install-banner').classList.add('hidden'); }
 
         // --- 2. AUTH ---
         function initAuthObserver() {
