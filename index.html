@@ -1,0 +1,659 @@
+<!DOCTYPE html>
+<html lang="it">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Travel Hub</title>
+    
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#0f172a">
+    <meta name="description" content="Organizza i tuoi viaggi di gruppo con Travel Hub: budget, mappe e itinerari condivisi.">
+    <link rel="apple-touch-icon" href="icon-192.png">
+    <link rel="icon" href="icon-192.png" type="image/png">
+
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <script defer src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+    <script defer src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+    <script defer src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+    <script defer src="https://www.gstatic.com/firebasejs/9.23.0/firebase-storage-compat.js"></script>
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#0f172a', secondary: '#334155', accent: '#3b82f6',
+                        success: '#10b981', danger: '#ef4444', warning: '#f59e0b', info: '#6366f1',
+                        surface: '#ffffff', background: '#e2e8f0',
+                        chatMe: '#dcf8c6', chatOthers: '#ffffff'
+                    },
+                    fontFamily: { sans: ['Plus Jakarta Sans', 'sans-serif'] }
+                }
+            }
+        }
+    </script>
+    <style>
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+        .loader { border: 3px solid #e2e8f0; border-top: 3px solid #3b82f6; border-radius: 50%; width: 24px; height: 24px; animation: spin 1s linear infinite; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        #map-container { height: 100%; width: 100%; z-index: 1; border-radius: 1rem; overflow: hidden; }
+        .leaflet-pane { z-index: 10 !important; } 
+        .scroll-nav { overflow-x: auto; white-space: nowrap; -webkit-overflow-scrolling: touch; }
+        .chat-bg { background-image: url('https://user-images.githubusercontent.com/15075759/28719144-86dc0f70-73b1-11e7-911d-60d70fcded21.png'); background-repeat: repeat; opacity: 0.1; position: absolute; inset: 0; pointer-events: none; }
+        .fade-in { animation: fadeIn 0.3s ease-in; }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+    </style>
+</head>
+
+<body class="bg-background text-secondary font-sans h-screen overflow-hidden selection:bg-accent selection:text-white">
+
+    <section id="auth-screen" class="h-full w-full flex items-center justify-center p-4 bg-slate-900 absolute inset-0 z-50">
+        <div class="bg-white w-full max-w-md p-8 rounded-[32px] shadow-2xl relative overflow-hidden">
+            <div class="absolute top-0 right-0 w-32 h-32 bg-accent opacity-10 rounded-full -mr-10 -mt-10"></div>
+            <div class="text-center mb-8">
+                <div class="h-14 w-14 bg-accent text-white rounded-2xl flex items-center justify-center text-2xl mx-auto mb-4 shadow-lg shadow-blue-500/30"><i class="fa-solid fa-plane-departure"></i></div>
+                <h1 class="text-2xl font-black text-primary">Travel Hub</h1>
+                <p class="text-slate-400 text-sm">Organizza i tuoi viaggi di gruppo</p>
+            </div>
+            
+            <button onclick="loginGoogle()" class="w-full py-3 bg-white border border-slate-200 text-slate-700 font-bold rounded-xl shadow-sm hover:bg-slate-50 transition flex justify-center items-center gap-2 mb-4">
+                <i class="fa-brands fa-google text-red-500"></i> Accedi con Google
+            </button>
+            
+            <div class="relative flex py-2 items-center mb-4">
+                <div class="flex-grow border-t border-slate-200"></div><span class="flex-shrink mx-4 text-slate-300 text-xs font-bold uppercase">Oppure email</span><div class="flex-grow border-t border-slate-200"></div>
+            </div>
+            
+            <form id="auth-form" onsubmit="handleEmailAuth(event)">
+                <div class="space-y-3">
+                    <div id="name-field-container" class="hidden">
+                        <input type="text" id="fullname" class="w-full p-4 bg-slate-50 rounded-xl border border-slate-200 outline-none text-sm" placeholder="Nome e Cognome">
+                    </div>
+                    <input type="email" id="email" required class="w-full p-4 bg-slate-50 rounded-xl border border-slate-200 outline-none text-sm" placeholder="nome@email.com">
+                    <input type="password" id="password" required class="w-full p-4 bg-slate-50 rounded-xl border border-slate-200 outline-none text-sm" placeholder="Password">
+                    <button type="submit" id="auth-btn" class="w-full py-4 bg-primary text-white font-bold rounded-xl shadow-xl hover:bg-slate-800 transition transform active:scale-95 flex justify-center items-center gap-2"><span id="auth-btn-text">Accedi</span></button>
+                </div>
+            </form>
+            
+            <p class="text-center mt-6 text-sm text-slate-500"><span id="auth-toggle-text">Non hai un account?</span> <button onclick="toggleAuthMode()" class="text-accent font-bold hover:underline" id="auth-toggle-btn">Registrati</button></p>
+            <div id="auth-error" class="hidden mt-4 p-3 bg-red-50 text-red-500 text-xs rounded-lg text-center font-bold"></div>
+        </div>
+    </section>
+
+    <section id="dashboard-screen" class="h-full w-full flex flex-col hidden absolute inset-0 z-40 bg-slate-50">
+        <header class="px-6 py-6 bg-white border-b border-slate-200 flex justify-between items-center shadow-sm z-10">
+            <div>
+                <h1 class="text-2xl font-black text-primary">I Tuoi Viaggi</h1>
+                <p class="text-slate-500 text-xs font-bold bg-slate-100 inline-block px-2 py-1 rounded-md mt-1" id="user-name-display">...</p>
+            </div>
+            <button onclick="openUserProfile()" class="h-10 w-10 bg-slate-100 rounded-full flex items-center justify-center text-slate-500 hover:bg-slate-200 hover:text-primary transition shadow-sm"><i class="fa-solid fa-user"></i></button>
+        </header>
+        <main class="flex-1 overflow-y-auto p-6 relative">
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-8">
+                <button onclick="openModal('modal-create-trip')" class="bg-primary text-white p-6 rounded-2xl shadow-lg flex flex-col items-center justify-center gap-3 hover:bg-slate-800 transition group active:scale-95">
+                    <div class="h-12 w-12 bg-white/10 rounded-full flex items-center justify-center group-hover:scale-110 transition text-xl"><i class="fa-solid fa-plus"></i></div><span class="font-bold">Crea Nuovo Viaggio</span>
+                </button>
+                <button onclick="openModal('modal-join-trip')" class="bg-white text-primary border border-slate-200 p-6 rounded-2xl shadow-sm flex flex-col items-center justify-center gap-3 hover:bg-slate-50 transition group active:scale-95">
+                    <div class="h-12 w-12 bg-accent/10 text-accent rounded-full flex items-center justify-center group-hover:scale-110 transition text-xl"><i class="fa-solid fa-ticket"></i></div><span class="font-bold">Unisciti con Codice</span>
+                </button>
+            </div>
+            <div class="flex items-center gap-2 mb-4"><i class="fa-solid fa-layer-group text-slate-400"></i><h3 class="font-bold text-slate-500 text-xs uppercase tracking-widest">Elenco Viaggi</h3></div>
+            <div id="trips-list" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"></div>
+        </main>
+    </section>
+
+    <section id="trip-app-screen" class="h-full w-full flex flex-col hidden absolute inset-0 z-30 bg-slate-50">
+        <header class="bg-surface px-4 py-3 border-b border-slate-200 shadow-sm shrink-0 z-20 bg-white">
+            <div class="flex justify-between items-start mb-3">
+                <div class="flex items-center gap-3">
+                    <button onclick="exitTrip()" class="h-10 w-10 rounded-xl bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-500 hover:bg-slate-200 transition"><i class="fa-solid fa-arrow-left"></i></button>
+                    <div>
+                        <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Travel Hub</p>
+                        <h1 class="text-xl font-black text-primary leading-none truncate max-w-[150px] sm:max-w-xs cursor-pointer hover:text-accent" id="current-trip-title" onclick="openTripSettings()">...</h1>
+                    </div>
+                </div>
+                <div class="flex gap-2">
+                    <button onclick="openModal('modal-share-trip')" class="bg-accent/10 text-accent h-10 w-10 rounded-xl flex items-center justify-center hover:bg-accent/20 transition"><i class="fa-solid fa-user-plus"></i></button>
+                    <button onclick="openTripSettings()" class="bg-slate-100 text-slate-500 h-10 w-10 rounded-xl flex items-center justify-center hover:bg-slate-200 transition"><i class="fa-solid fa-gear"></i></button>
+                </div>
+            </div>
+            <div class="flex gap-2">
+                <div id="weather-widget" class="hidden flex-1 bg-blue-50 border border-blue-100 rounded-xl p-2 flex items-center justify-between">
+                    <div class="flex flex-col"><span class="text-[10px] font-bold text-blue-400 uppercase">Meteo</span><span id="weather-desc" class="text-xs font-bold text-blue-800">...</span></div>
+                    <span id="weather-temp" class="text-2xl font-black text-blue-600">--°</span>
+                </div>
+                <div id="countdown-bar" class="hidden flex-[1.5] bg-orange-50 border border-orange-100 rounded-xl p-2 flex items-center justify-center gap-3">
+                    <i class="fa-solid fa-hourglass-half text-orange-400"></i>
+                    <div class="flex flex-col leading-none text-center"><span class="text-[10px] font-bold text-orange-400 uppercase">Manca poco</span><span id="countdown-text" class="text-sm font-black text-orange-600">--</span></div>
+                </div>
+            </div>
+        </header>
+
+        <div class="flex-1 flex overflow-hidden relative">
+            <aside class="hidden lg:flex flex-col w-64 bg-white border-r border-slate-200 p-4 gap-2 shrink-0 overflow-y-auto">
+                <button onclick="switchTab('view-itinerary')" class="nav-btn active flex items-center gap-3 px-4 py-3 rounded-xl text-slate-500 font-bold text-sm transition hover:bg-slate-50" data-target="view-itinerary"><i class="fa-solid fa-route w-5 text-center"></i> Itinerario</button>
+                <button onclick="switchTab('view-map')" class="nav-btn flex items-center gap-3 px-4 py-3 rounded-xl text-slate-500 font-bold text-sm transition hover:bg-slate-50" data-target="view-map"><i class="fa-solid fa-map w-5 text-center"></i> Mappa</button>
+                <button onclick="switchTab('view-social')" class="nav-btn flex items-center gap-3 px-4 py-3 rounded-xl text-slate-500 font-bold text-sm transition hover:bg-slate-50" data-target="view-social"><i class="fa-solid fa-comments w-5 text-center"></i> Social</button>
+                <button onclick="switchTab('view-budget')" class="nav-btn flex items-center gap-3 px-4 py-3 rounded-xl text-slate-500 font-bold text-sm transition hover:bg-slate-50" data-target="view-budget"><i class="fa-solid fa-wallet w-5 text-center"></i> Budget</button>
+                <button onclick="switchTab('view-accom')" class="nav-btn flex items-center gap-3 px-4 py-3 rounded-xl text-slate-500 font-bold text-sm transition hover:bg-slate-50" data-target="view-accom"><i class="fa-solid fa-bed w-5 text-center"></i> Alloggi</button>
+                <button onclick="switchTab('view-photos')" class="nav-btn flex items-center gap-3 px-4 py-3 rounded-xl text-slate-500 font-bold text-sm transition hover:bg-slate-50" data-target="view-photos"><i class="fa-solid fa-images w-5 text-center"></i> Foto</button>
+                <button onclick="switchTab('view-packing')" class="nav-btn flex items-center gap-3 px-4 py-3 rounded-xl text-slate-500 font-bold text-sm transition hover:bg-slate-50" data-target="view-packing"><i class="fa-solid fa-suitcase w-5 text-center"></i> Zaino</button>
+            </aside>
+
+            <main class="flex-1 overflow-y-auto p-4 md:p-8 relative w-full" id="main-container">
+                <div id="view-itinerary" class="tab-content fade-in space-y-6 max-w-5xl mx-auto">
+                    <div class="flex justify-between items-center pb-2 border-b border-slate-200">
+                        <h2 class="text-xl font-black text-primary">Itinerario</h2>
+                        <button onclick="openModal('modal-itinerary')" class="bg-primary text-white h-9 w-9 rounded-full flex items-center justify-center hover:bg-slate-800"><i class="fa-solid fa-plus"></i></button>
+                    </div>
+                    <div id="itinerary-list" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"></div>
+                </div>
+
+                <div id="view-map" class="tab-content hidden h-full flex flex-col">
+                    <div class="bg-blue-50 text-blue-800 p-2 rounded-lg text-[10px] mb-2 shrink-0 flex items-center gap-2"><i class="fa-solid fa-info-circle"></i> Tieni premuto per aggiungere.</div>
+                    <div class="flex-1 relative rounded-2xl overflow-hidden shadow-inner bg-slate-100 border border-slate-200">
+                        <div id="map-container"></div>
+                    </div>
+                </div>
+
+                <div id="view-social" class="tab-content hidden h-full flex flex-col max-w-3xl mx-auto w-full">
+                    <div class="flex gap-2 mb-4 p-1 bg-white rounded-xl shadow-sm border border-slate-200 shrink-0">
+                        <button onclick="toggleSocialMode('chat')" id="btn-mode-chat" class="flex-1 py-2 rounded-lg text-xs font-bold bg-slate-100">Chat</button>
+                        <button onclick="toggleSocialMode('polls')" id="btn-mode-polls" class="flex-1 py-2 rounded-lg text-xs font-bold text-slate-500">Sondaggi</button>
+                    </div>
+                    <div id="social-chat" class="flex-1 flex flex-col h-full overflow-hidden bg-[#e5ddd5] relative rounded-2xl border border-slate-200">
+                        <div class="chat-bg"></div>
+                        <div id="chat-messages" class="flex-1 overflow-y-auto space-y-2 p-4 z-10"></div>
+                        <form onsubmit="sendMessage(event)" class="mt-auto flex gap-2 p-2 bg-white z-10 border-t border-slate-200">
+                            <input type="text" id="chat-input" placeholder="Scrivi un messaggio..." class="flex-1 bg-slate-100 border-none rounded-full px-4 py-3 outline-none text-sm">
+                            <button type="submit" class="bg-[#00a884] text-white h-10 w-10 rounded-full flex items-center justify-center shadow-md"><i class="fa-solid fa-paper-plane"></i></button>
+                        </form>
+                    </div>
+                    <div id="social-polls" class="hidden flex-1 overflow-y-auto pb-20">
+                        <button onclick="openModal('modal-poll')" class="w-full py-3 mb-4 border-2 border-dashed border-slate-300 text-slate-400 rounded-xl font-bold hover:bg-slate-50">+ Crea Sondaggio</button>
+                        <div id="polls-list" class="space-y-4"></div>
+                    </div>
+                </div>
+
+                <div id="view-budget" class="tab-content hidden space-y-6 max-w-5xl mx-auto">
+                    <div class="flex justify-between items-center"><h2 class="text-xl font-black text-primary">Budget</h2>
+                        <div class="flex bg-white border border-slate-200 p-1 rounded-lg">
+                            <button onclick="toggleBudgetMode('personal')" id="btn-budget-personal" class="px-3 py-1.5 rounded-md text-[10px] font-bold bg-slate-100">Mio</button>
+                            <button onclick="toggleBudgetMode('group')" id="btn-budget-group" class="px-3 py-1.5 rounded-md text-[10px] font-bold text-slate-500">Gruppo</button>
+                        </div>
+                    </div>
+                    <div id="budget-personal-section">
+                        <div class="bg-primary text-white p-6 rounded-3xl shadow-xl flex flex-col justify-center mb-6">
+                            <p class="text-slate-400 text-xs font-bold uppercase mb-1">Tuo Residuo</p>
+                            <h3 class="text-4xl font-black" id="budget-remaining">€0</h3>
+                            <div class="flex justify-between mt-1"><span class="text-xs text-slate-400" id="budget-total-display">/ €0</span><button onclick="openSettings()" class="text-[10px] bg-white/10 px-2 py-1 rounded hover:bg-white/20">Imposta Budget</button></div>
+                        </div>
+                        <div class="bg-white p-6 rounded-3xl shadow-sm border border-slate-100 min-h-[300px]">
+                            <div class="flex justify-between mb-4 items-center"><h3 class="font-bold text-sm text-slate-500 uppercase">Le tue spese</h3><button onclick="openExpenseModal('personal')" class="text-xs bg-accent text-white px-3 py-1.5 rounded-lg font-bold">Aggiungi</button></div>
+                            <div id="expense-list" class="space-y-3"></div>
+                        </div>
+                    </div>
+                    <div id="budget-group-section" class="hidden space-y-4">
+                        <div class="bg-purple-50 p-4 rounded-2xl border border-purple-100"><p class="text-xs text-purple-800 font-bold"><i class="fa-solid fa-users mr-2"></i>Chi paga per tutti?</p></div>
+                        <div class="bg-white p-6 rounded-3xl shadow-sm border border-slate-100"><div class="flex justify-between mb-4"><h3 class="font-bold text-sm text-slate-500 uppercase">Spese Comuni</h3><button onclick="openExpenseModal('group')" class="text-xs bg-purple-600 text-white px-3 py-1.5 rounded-lg font-bold">Aggiungi</button></div><div id="group-expense-list" class="space-y-3"></div></div>
+                    </div>
+                </div>
+
+                <div id="view-photos" class="tab-content hidden space-y-6 max-w-5xl mx-auto">
+                    <div class="flex justify-between items-center pb-2 border-b border-slate-200">
+                        <h2 class="text-xl font-black text-primary">Galleria</h2>
+                        <label class="bg-accent text-white px-4 py-2 rounded-xl font-bold text-xs shadow-lg cursor-pointer flex items-center gap-2"><i class="fa-solid fa-camera"></i> Carica <input type="file" id="photo-upload" accept="image/*" class="hidden" onchange="uploadPhoto(this)"></label>
+                    </div>
+                    <div id="photo-upload-bar" class="hidden h-1 bg-accent/20 w-full overflow-hidden rounded-full"><div class="bg-accent h-full animate-pulse w-full"></div></div>
+                    <div id="photos-list" class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2"></div>
+                </div>
+
+                <div id="view-accom" class="tab-content hidden space-y-6 max-w-5xl mx-auto">
+                    <div class="flex justify-between items-center pb-2 border-b border-slate-200">
+                        <h2 class="text-xl font-black text-primary">Alloggi</h2>
+                        <button onclick="openModal('modal-accom')" class="bg-primary text-white h-9 w-9 rounded-full flex items-center justify-center"><i class="fa-solid fa-plus"></i></button>
+                    </div>
+                    <div id="accom-list" class="grid grid-cols-1 md:grid-cols-2 gap-4"></div>
+                </div>
+
+                <div id="view-packing" class="tab-content hidden space-y-6 max-w-3xl mx-auto">
+                    <div class="flex justify-between items-center pb-2 border-b border-slate-200">
+                        <h2 class="text-xl font-black text-primary">Zaino</h2>
+                        <button onclick="openModal('modal-packing')" class="bg-primary text-white h-9 w-9 rounded-full flex items-center justify-center"><i class="fa-solid fa-plus"></i></button>
+                    </div>
+                    <div class="bg-white p-6 rounded-3xl shadow-sm border border-slate-100">
+                        <div class="flex justify-between text-[10px] font-bold text-slate-400 mb-1 uppercase"><span>Progresso</span><span id="packing-percent">0%</span></div>
+                        <div class="bg-slate-100 rounded-full h-2 w-full mb-4 overflow-hidden"><div id="packing-progress" class="bg-success h-2 rounded-full transition-all w-0"></div></div>
+                        <div id="packing-list" class="space-y-2"></div>
+                    </div>
+                </div>
+            </main>
+        </div>
+
+        <nav class="lg:hidden bg-white border-t border-slate-200 pb-safe z-40 shrink-0">
+            <div class="flex scroll-nav h-16 px-2 gap-1 items-center">
+                <button onclick="switchTab('view-itinerary')" class="nav-btn active min-w-[64px] flex flex-col items-center justify-center text-slate-400" data-target="view-itinerary"><i class="fa-solid fa-route text-lg mb-1"></i><span class="text-[9px] font-bold">Viaggio</span></button>
+                <button onclick="switchTab('view-map')" class="nav-btn min-w-[64px] flex flex-col items-center justify-center text-slate-400" data-target="view-map"><i class="fa-solid fa-map text-lg mb-1"></i><span class="text-[9px] font-bold">Mappa</span></button>
+                <button onclick="switchTab('view-social')" class="nav-btn min-w-[64px] flex flex-col items-center justify-center text-slate-400" data-target="view-social"><i class="fa-solid fa-comments text-lg mb-1"></i><span class="text-[9px] font-bold">Social</span></button>
+                <button onclick="switchTab('view-budget')" class="nav-btn min-w-[64px] flex flex-col items-center justify-center text-slate-400" data-target="view-budget"><i class="fa-solid fa-wallet text-lg mb-1"></i><span class="text-[9px] font-bold">Budget</span></button>
+                <button onclick="switchTab('view-photos')" class="nav-btn min-w-[64px] flex flex-col items-center justify-center text-slate-400" data-target="view-photos"><i class="fa-solid fa-images text-lg mb-1"></i><span class="text-[9px] font-bold">Foto</span></button>
+                <button onclick="switchTab('view-accom')" class="nav-btn min-w-[64px] flex flex-col items-center justify-center text-slate-400" data-target="view-accom"><i class="fa-solid fa-bed text-lg mb-1"></i><span class="text-[9px] font-bold">Alloggi</span></button>
+                <button onclick="switchTab('view-packing')" class="nav-btn min-w-[64px] flex flex-col items-center justify-center text-slate-400" data-target="view-packing"><i class="fa-solid fa-suitcase text-lg mb-1"></i><span class="text-[9px] font-bold">Zaino</span></button>
+            </div>
+        </nav>
+    </section>
+
+    <div id="modal-user-settings" class="fixed inset-0 z-[70] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 hidden">
+        <div class="bg-white w-full max-w-sm rounded-3xl p-6 shadow-2xl relative">
+            <button onclick="closeModal('modal-user-settings')" class="absolute top-4 right-4 text-slate-300 hover:text-slate-500"><i class="fa-solid fa-xmark text-xl"></i></button>
+            <div class="text-center mb-6">
+                <div class="h-16 w-16 bg-slate-100 rounded-full flex items-center justify-center text-2xl text-slate-400 mx-auto mb-3"><i class="fa-solid fa-user"></i></div>
+                <h3 class="font-bold text-xl text-primary" id="profile-name">Account</h3>
+                <p class="text-sm text-slate-500 truncate px-4" id="profile-email">...</p>
+            </div>
+            <button onclick="openModal('modal-feedback')" class="w-full flex items-center justify-between p-4 bg-blue-50 rounded-xl hover:bg-blue-100 transition mb-3 text-left">
+                <div class="flex items-center gap-3">
+                    <div class="bg-white p-2 rounded-lg text-blue-500 shadow-sm"><i class="fa-solid fa-comment-dots"></i></div>
+                    <div><span class="block font-bold text-sm text-blue-800">Invia Feedback</span><span class="block text-[10px] text-blue-400 font-bold">Segnala bug o suggerimenti</span></div>
+                </div>
+                <i class="fa-solid fa-chevron-right text-xs text-blue-300"></i>
+            </button>
+            <div class="space-y-3">
+                <button onclick="logout()" class="w-full p-4 bg-slate-50 rounded-xl hover:bg-slate-100 font-bold text-sm text-slate-600">Esci</button>
+                <button onclick="deleteAccount()" class="w-full p-4 bg-red-50 text-red-500 rounded-xl font-bold text-sm hover:bg-red-100">Elimina Account</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="modal-create-trip" class="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 hidden">
+        <div class="bg-white w-full max-w-sm rounded-3xl p-6 shadow-2xl">
+            <h3 class="font-bold text-xl mb-4 text-primary">Nuovo Viaggio</h3>
+            <input type="text" id="new-trip-name" placeholder="Nome Viaggio" class="w-full p-4 bg-slate-50 rounded-xl mb-3 border border-slate-200 outline-none">
+            <input type="text" id="new-trip-city" placeholder="Città (es. Roma)" class="w-full p-4 bg-slate-50 rounded-xl mb-3 border border-slate-200 outline-none">
+            <input type="date" id="new-trip-date" class="w-full p-4 bg-slate-50 rounded-xl mb-4 border border-slate-200 outline-none">
+            <div class="flex gap-3"><button onclick="closeModal('modal-create-trip')" class="flex-1 py-3 font-bold text-slate-500">Annulla</button><button onclick="createTrip()" class="flex-1 py-3 bg-primary text-white font-bold rounded-xl">Crea</button></div>
+        </div>
+    </div>
+    <div id="modal-join-trip" class="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 hidden">
+        <div class="bg-white w-full max-w-sm rounded-3xl p-6 shadow-2xl text-center">
+            <h3 class="font-bold text-xl mb-4 text-primary text-left">Unisciti con Codice</h3>
+            <input type="text" id="join-trip-code" placeholder="Codice Invito" class="w-full p-4 bg-slate-50 rounded-xl mb-4 border border-slate-200 outline-none font-mono text-center tracking-widest uppercase">
+            <div class="flex gap-3"><button onclick="closeModal('modal-join-trip')" class="flex-1 py-3 font-bold text-slate-500">Annulla</button><button onclick="joinTrip()" class="flex-1 py-3 bg-accent text-white font-bold rounded-xl">Unisciti</button></div>
+        </div>
+    </div>
+
+    <div id="modal-feedback" class="fixed inset-0 z-[80] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 hidden">
+        <div class="bg-white w-full max-w-md rounded-3xl p-6 shadow-2xl">
+            <h3 class="font-bold text-lg mb-2 text-primary">Contatta lo Sviluppatore</h3>
+            <p class="text-xs text-slate-400 mb-4">Hai trovato un bug o hai un'idea?</p>
+            <select id="feedback-type" class="w-full p-3 bg-slate-50 rounded-xl mb-3 border border-slate-200 text-sm font-bold text-slate-600 outline-none">
+                <option value="bug">🐛 Segnala un Problema</option>
+                <option value="feature">💡 Suggerisci Funzionalità</option>
+                <option value="other">✉️ Altro</option>
+            </select>
+            <textarea id="feedback-text" rows="4" placeholder="Scrivi qui..." class="w-full p-3 bg-slate-50 rounded-xl mb-4 border border-slate-200 outline-none text-sm resize-none"></textarea>
+            <div class="flex gap-2"><button onclick="closeModal('modal-feedback')" class="flex-1 py-3 bg-slate-100 rounded-xl font-bold text-slate-500">Annulla</button><button onclick="sendFeedback()" class="flex-1 py-3 bg-primary text-white rounded-xl font-bold shadow-lg">Invia</button></div>
+        </div>
+    </div>
+
+    <div id="modal-itinerary" class="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 hidden">
+        <div class="bg-white w-full max-w-md rounded-3xl p-6 shadow-2xl">
+            <h3 class="font-bold text-lg mb-4 text-primary">Aggiungi Tappa</h3>
+            <input type="text" id="itin-title" placeholder="Cosa facciamo?" class="w-full p-3 bg-slate-50 rounded-xl mb-3 border border-slate-200">
+            <div class="flex gap-2 mb-3"><input type="date" id="itin-date" class="w-1/2 p-3 bg-slate-50 rounded-xl border border-slate-200"><input type="time" id="itin-time" class="w-1/2 p-3 bg-slate-50 rounded-xl border border-slate-200"></div>
+            <textarea id="itin-desc" placeholder="Dettagli..." rows="2" class="w-full p-3 bg-slate-50 rounded-xl mb-4 border border-slate-200 text-sm"></textarea>
+            <div class="flex gap-2"><button onclick="closeModal('modal-itinerary')" class="flex-1 py-3 bg-slate-100 rounded-xl">Annulla</button><button onclick="saveItinerary()" class="flex-1 py-3 bg-primary text-white rounded-xl">Salva</button></div>
+        </div>
+    </div>
+    <div id="modal-expense" class="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 hidden">
+        <div class="bg-white w-full max-w-md rounded-3xl p-6 shadow-2xl">
+            <h3 class="font-bold text-lg mb-2 text-primary" id="exp-modal-title">Nuova Spesa</h3>
+            <div id="exp-type-selector" class="flex gap-2 mb-4 p-1 bg-slate-100 rounded-lg">
+                <button id="btn-type-personal" onclick="switchExpType('personal')" class="flex-1 py-1 rounded text-xs font-bold bg-white shadow-sm">Personale</button>
+                <button id="btn-type-group" onclick="switchExpType('group')" class="flex-1 py-1 rounded text-xs font-bold text-slate-500">Gruppo</button>
+            </div>
+            <input type="hidden" id="exp-current-type" value="personal">
+            <input type="hidden" id="exp-edit-id" value="">
+            <input type="text" id="exp-title" placeholder="Descrizione" class="w-full p-3 bg-slate-50 rounded-xl mb-3 border border-slate-200 outline-none">
+            <div id="exp-categories" class="flex gap-2 mb-3 overflow-x-auto no-scrollbar">
+                <button onclick="selectCategory(this, 'food')" class="cat-btn flex-1 py-2 px-3 bg-slate-50 border border-slate-200 rounded-lg text-xs font-bold text-slate-500">Cibo</button>
+                <button onclick="selectCategory(this, 'transport')" class="cat-btn flex-1 py-2 px-3 bg-slate-50 border border-slate-200 rounded-lg text-xs font-bold text-slate-500">Bus</button>
+                <button onclick="selectCategory(this, 'sleep')" class="cat-btn flex-1 py-2 px-3 bg-slate-50 border border-slate-200 rounded-lg text-xs font-bold text-slate-500">Hotel</button>
+            </div>
+            <input type="hidden" id="exp-category" value="general">
+            <div class="relative mb-4">
+                <span class="absolute left-4 top-3 text-slate-400 font-bold">€</span>
+                <input type="number" id="exp-amount" placeholder="0.00" step="0.01" class="w-full p-3 pl-8 bg-slate-50 rounded-xl border border-slate-200 font-mono">
+            </div>
+            <div class="flex gap-2"><button onclick="closeModal('modal-expense')" class="flex-1 py-3 bg-slate-100 rounded-xl">Annulla</button><button onclick="saveExpenseFromModal()" class="flex-1 py-3 bg-primary text-white rounded-xl">Salva</button></div>
+        </div>
+    </div>
+    <div id="modal-share-trip" class="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 hidden">
+        <div class="bg-white w-full max-w-sm rounded-3xl p-6 shadow-2xl text-center">
+            <h3 class="font-bold text-xl mb-2 text-primary">Invita Amici</h3>
+            <div class="bg-slate-100 p-4 rounded-xl border border-dashed border-slate-300 mb-4 cursor-pointer" onclick="copyCode()">
+                <p class="font-mono text-3xl font-black text-primary tracking-widest" id="share-code">...</p>
+                <p class="text-[10px] text-slate-400 mt-1 uppercase font-bold">Clicca per copiare</p>
+            </div>
+            <button onclick="closeModal('modal-share-trip')" class="w-full py-3 bg-slate-100 text-slate-500 font-bold rounded-xl">Chiudi</button>
+        </div>
+    </div>
+    <div id="modal-settings" class="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 hidden">
+        <div class="bg-white w-full max-w-md rounded-3xl p-6 shadow-2xl">
+            <h3 class="font-bold text-lg mb-4 text-primary">Budget Personale Totale (€)</h3>
+            <input type="number" id="settings-budget" class="w-full p-3 mb-4 bg-slate-50 rounded-xl border border-slate-200 font-mono text-lg">
+            <button onclick="saveSettings()" class="w-full py-3 bg-primary text-white rounded-xl font-bold">Aggiorna</button>
+            <button onclick="closeModal('modal-settings')" class="w-full mt-2 py-3 text-slate-400 text-sm font-bold">Annulla</button>
+        </div>
+    </div>
+    <div id="modal-poll" class="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 hidden">
+        <div class="bg-white w-full max-w-md rounded-3xl p-6 shadow-2xl flex flex-col max-h-[80vh]">
+            <h3 class="font-bold text-lg mb-4 text-primary">Crea Sondaggio</h3>
+            <input type="text" id="poll-question" placeholder="Cosa chiediamo?" class="w-full p-3 bg-slate-50 rounded-xl mb-3 border border-slate-200">
+            <div id="poll-options-container" class="space-y-2 overflow-y-auto mb-3">
+                <input type="text" placeholder="Opzione 1" class="poll-opt-input w-full p-2 bg-slate-50 rounded-lg border border-slate-200 text-sm">
+                <input type="text" placeholder="Opzione 2" class="poll-opt-input w-full p-2 bg-slate-50 rounded-lg border border-slate-200 text-sm">
+            </div>
+            <button onclick="addPollOption()" class="text-xs font-bold text-accent mb-4">+ Aggiungi Opzione</button>
+            <div class="flex gap-2"><button onclick="closeModal('modal-poll')" class="flex-1 py-3 bg-slate-100 rounded-xl font-bold">Annulla</button><button onclick="createPoll()" class="flex-1 py-3 bg-primary text-white rounded-xl font-bold">Pubblica</button></div>
+        </div>
+    </div>
+    <div id="modal-accom" class="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 hidden">
+        <div class="bg-white w-full max-w-md rounded-3xl p-6 shadow-2xl">
+            <h3 class="font-bold text-lg mb-4 text-primary">Alloggio</h3>
+            <input type="text" id="acc-name" placeholder="Nome Posto" class="w-full p-3 bg-slate-50 rounded-xl mb-3 border border-slate-200">
+            <input type="text" id="acc-address" placeholder="Indirizzo" class="w-full p-3 bg-slate-50 rounded-xl mb-3 border border-slate-200 text-sm">
+            <div class="flex gap-2 mb-4"><input type="date" id="acc-checkin" class="flex-1 p-3 bg-slate-50 rounded-xl border border-slate-200"><input type="date" id="acc-checkout" class="flex-1 p-3 bg-slate-50 rounded-xl border border-slate-200"></div>
+            <div class="flex gap-2"><button onclick="closeModal('modal-accom')" class="flex-1 py-3 bg-slate-100 rounded-xl">Annulla</button><button onclick="saveAccom()" class="flex-1 py-3 bg-primary text-white rounded-xl">Salva</button></div>
+        </div>
+    </div>
+    <div id="modal-packing" class="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 hidden">
+        <div class="bg-white w-full max-w-md rounded-3xl p-6 shadow-2xl">
+            <h3 class="font-bold text-lg mb-4 text-primary">Aggiungi Oggetto</h3>
+            <input type="text" id="pack-item" placeholder="Cosa serve?" class="w-full p-3 bg-slate-50 rounded-xl mb-3 border border-slate-200">
+            <label class="flex items-center gap-3 p-3 bg-slate-50 rounded-xl mb-4"><input type="checkbox" id="pack-private" class="w-5 h-5 rounded text-accent"> <span class="text-sm font-bold text-slate-600">Privato (Vedi solo tu)</span></label>
+            <div class="flex gap-2"><button onclick="closeModal('modal-packing')" class="flex-1 py-3 bg-slate-100 rounded-xl">Annulla</button><button onclick="savePackItem()" class="flex-1 py-3 bg-primary text-white rounded-xl">Aggiungi</button></div>
+        </div>
+    </div>
+    <div id="modal-trip-settings" class="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 hidden">
+        <div class="bg-white w-full max-w-sm rounded-3xl p-6 shadow-2xl">
+            <h3 class="font-bold text-xl mb-4 text-primary">Impostazioni Viaggio</h3>
+            <input type="text" id="settings-trip-name" class="w-full p-3 bg-slate-50 rounded-xl border border-slate-200 mb-4">
+            <button onclick="renameTrip()" class="w-full py-2 bg-primary text-white rounded-xl font-bold mb-4">Rinomina</button>
+            <div class="mb-4">
+                <label class="text-[10px] font-bold text-slate-400 uppercase">Membri</label>
+                <div id="members-list" class="mt-2 space-y-2 max-h-40 overflow-y-auto bg-slate-50 p-2 rounded-xl"></div>
+            </div>
+            <div id="admin-actions" class="hidden"><button onclick="deleteTrip()" class="w-full py-3 bg-red-50 text-red-500 font-bold rounded-xl hover:bg-red-100 transition">Elimina Viaggio Permanente</button></div>
+            <div id="user-actions" class="hidden"><button onclick="leaveTrip()" class="w-full py-3 bg-slate-100 text-slate-500 font-bold rounded-xl">Esci dal Gruppo</button></div>
+            <button onclick="closeModal('modal-trip-settings')" class="w-full mt-2 py-3 text-slate-400 text-sm font-bold">Chiudi</button>
+        </div>
+    </div>
+
+    <script>
+        // --- 1. CONFIGURAZIONE & FIREBASE ---
+        const firebaseConfig = {
+            apiKey: "AIzaSyA_PiMMnIbnbAHkoWS2jk9-oLh64AINEbQ",
+            authDomain: "post-camino-hub.firebaseapp.com",
+            projectId: "post-camino-hub",
+            storageBucket: "post-camino-hub.firebasestorage.app",
+            messagingSenderId: "945225069153",
+            appId: "1:945225069153:web:be5a94013e7bf6c2d53020"
+        };
+
+        let db, storage, auth;
+        let currentUser = null;
+        let currentTripId = null;
+        let currentTripData = null;
+        let unsubscribeListeners = [];
+        let map = null;
+        let deferredPrompt;
+
+        document.addEventListener('DOMContentLoaded', () => {
+            if (typeof firebase !== 'undefined') {
+                firebase.initializeApp(firebaseConfig);
+                db = firebase.firestore();
+                storage = firebase.storage();
+                auth = firebase.auth();
+                initAuthObserver();
+            }
+        });
+
+        // Service Worker
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('./sw.js').catch(err => console.log("SW Error:", err));
+            });
+        }
+
+        // --- 2. AUTH ---
+        function initAuthObserver() {
+            auth.onAuthStateChanged(user => {
+                if (user) {
+                    currentUser = user;
+                    document.getElementById('auth-screen').classList.add('hidden');
+                    document.getElementById('dashboard-screen').classList.remove('hidden');
+                    const displayName = user.displayName || user.email.split('@')[0];
+                    document.getElementById('user-name-display').innerText = displayName;
+                    document.getElementById('profile-name').innerText = displayName;
+                    document.getElementById('profile-email').innerText = user.email;
+                    loadUserTrips();
+                } else {
+                    currentUser = null;
+                    document.getElementById('auth-screen').classList.remove('hidden');
+                    document.getElementById('dashboard-screen').classList.add('hidden');
+                    document.getElementById('trip-app-screen').classList.add('hidden');
+                }
+            });
+        }
+
+        let isLoginMode = true;
+        function toggleAuthMode() {
+            isLoginMode = !isLoginMode;
+            document.getElementById('auth-btn-text').innerText = isLoginMode ? "Accedi" : "Registrati";
+            document.getElementById('auth-toggle-btn').innerText = isLoginMode ? "Registrati" : "Accedi";
+            document.getElementById('name-field-container').style.display = isLoginMode ? 'none' : 'block';
+        }
+
+        function handleEmailAuth(e) {
+            e.preventDefault();
+            const email = document.getElementById('email').value;
+            const pass = document.getElementById('password').value;
+            const name = document.getElementById('fullname').value;
+            const errorDiv = document.getElementById('auth-error');
+            errorDiv.classList.add('hidden');
+
+            const promise = isLoginMode ? 
+                auth.signInWithEmailAndPassword(email, pass) : 
+                auth.createUserWithEmailAndPassword(email, pass).then(cred => cred.user.updateProfile({displayName: name}));
+
+            promise.catch(err => {
+                errorDiv.innerText = "Errore: " + err.message;
+                errorDiv.classList.remove('hidden');
+            });
+        }
+
+        function loginGoogle() {
+            const provider = new firebase.auth.GoogleAuthProvider();
+            auth.signInWithPopup(provider).catch(err => {
+                console.error("Errore login Google:", err);
+                const errorDiv = document.getElementById('auth-error');
+                errorDiv.innerText = "Errore: " + err.message;
+                errorDiv.classList.remove('hidden');
+            });
+        }
+        
+        function logout() { auth.signOut().then(() => location.reload()); }
+        function deleteAccount() { if(confirm("Sei sicuro?")) auth.currentUser.delete().then(()=>location.reload()); }
+
+        // --- 3. DASHBOARD ---
+        function loadUserTrips() {
+            const list = document.getElementById('trips-list');
+            list.innerHTML = `<div class="loader mx-auto col-span-full"></div>`;
+            db.collection('trips').where('members', 'array-contains', currentUser.uid).onSnapshot(snap => {
+                list.innerHTML = "";
+                if (snap.empty) { list.innerHTML = `<p class="col-span-full text-center text-slate-400 italic py-10">Nessun viaggio trovato.</p>`; return; }
+                snap.forEach(doc => {
+                    const d = doc.data();
+                    list.innerHTML += `<div onclick="openTrip('${doc.id}', '${d.name.replace(/'/g, "\\'")}', '${d.inviteCode}')" class="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 cursor-pointer hover:shadow-md transition relative">
+                        <div class="h-12 w-12 bg-blue-50 text-accent rounded-full flex items-center justify-center text-xl mb-4"><i class="fa-solid fa-map-location-dot"></i></div>
+                        <h3 class="font-bold text-xl text-primary truncate">${d.name}</h3>
+                        <p class="text-sm text-slate-400">${d.members ? d.members.length : 1} Partecipanti</p>
+                    </div>`;
+                });
+            });
+        }
+
+        function createTrip() {
+            const n = document.getElementById('new-trip-name').value;
+            const city = document.getElementById('new-trip-city').value;
+            const date = document.getElementById('new-trip-date').value;
+            if(!n || !city) return alert("Inserisci Nome e Città");
+            
+            db.collection('trips').add({
+                name: n, city: city, startDate: date, inviteCode: Math.random().toString(36).substring(2,8).toUpperCase(),
+                createdBy: currentUser.uid, members: [currentUser.uid], 
+                memberDetails: [{uid: currentUser.uid, name: currentUser.displayName || currentUser.email}],
+                coords: {lat: 41.9, lng: 12.5} // Placeholder coords
+            }).then(() => closeModal('modal-create-trip'));
+        }
+
+        function joinTrip() {
+            const c = document.getElementById('join-trip-code').value.toUpperCase().trim();
+            db.collection('trips').where('inviteCode', '==', c).get().then(s => {
+                if(s.empty) return alert("Codice non valido");
+                const tid = s.docs[0].id;
+                db.collection('trips').doc(tid).update({
+                    members: firebase.firestore.FieldValue.arrayUnion(currentUser.uid),
+                    memberDetails: firebase.firestore.FieldValue.arrayUnion({uid: currentUser.uid, name: currentUser.displayName || currentUser.email})
+                }).then(() => closeModal('modal-join-trip'));
+            });
+        }
+
+        // --- 4. FEATURES VIAGGIO ---
+        function openTrip(tid, tname, tcode) {
+            currentTripId = tid;
+            document.getElementById('dashboard-screen').classList.add('hidden');
+            document.getElementById('trip-app-screen').classList.remove('hidden');
+            document.getElementById('current-trip-title').innerText = tname;
+            document.getElementById('share-code').innerText = tcode;
+            
+            // Listeners
+            unsubscribeListeners.push(db.collection('trips').doc(tid).onSnapshot(doc => {
+                if(!doc.exists) return exitTrip();
+                currentTripData = doc.data();
+                if(currentTripData.startDate) startCountdown(currentTripData.startDate);
+            }));
+            
+            loadTripData();
+            switchTab('view-itinerary');
+        }
+
+        function exitTrip() {
+            currentTripId = null;
+            unsubscribeListeners.forEach(u => u());
+            document.getElementById('trip-app-screen').classList.add('hidden');
+            document.getElementById('dashboard-screen').classList.remove('hidden');
+        }
+
+        function startCountdown(dateStr) {
+            const target = new Date(dateStr).getTime();
+            const txt = document.getElementById('countdown-text');
+            document.getElementById('countdown-bar').classList.remove('hidden');
+            const update = () => {
+                const dist = target - new Date().getTime();
+                if (dist < 0) return txt.innerText = "Siamo in viaggio!";
+                const d = Math.floor(dist / 86400000);
+                txt.innerText = `${d} giorni`;
+            };
+            update();
+        }
+
+        // Altre Funzioni Utilities
+        function switchTab(id) {
+            document.querySelectorAll('.tab-content').forEach(e => e.classList.add('hidden'));
+            document.getElementById(id).classList.remove('hidden');
+            if(id === 'view-map') setTimeout(initMap, 200);
+            document.querySelectorAll('.nav-btn').forEach(b => {
+                b.classList.toggle('active', b.dataset.target === id);
+                if(window.innerWidth >= 1024) b.classList.toggle('bg-slate-50', b.dataset.target === id);
+            });
+        }
+
+        function openModal(id) { document.getElementById(id).classList.remove('hidden'); document.getElementById(id).classList.add('flex'); }
+        function closeModal(id) { document.getElementById(id).classList.add('hidden'); document.getElementById(id).classList.remove('flex'); }
+        function copyCode() { navigator.clipboard.writeText(document.getElementById('share-code').innerText).then(() => alert("Copiato!")); }
+
+        // --- CHAT & BUDGET & PACKING (Base Logic) ---
+        function sendMessage(e) {
+            e.preventDefault();
+            const input = document.getElementById('chat-input');
+            if(!input.value.trim()) return;
+            db.collection('trips').doc(currentTripId).collection('chat').add({
+                text: input.value, uid: currentUser.uid, name: currentUser.displayName || "Utente", timestamp: firebase.firestore.FieldValue.serverTimestamp()
+            });
+            input.value = "";
+        }
+
+        function deleteSubItem(col, id) { if(confirm("Eliminare?")) db.collection('trips').doc(currentTripId).collection(col).doc(id).delete(); }
+
+        function sendFeedback() {
+            const type = document.getElementById('feedback-type').value;
+            const text = document.getElementById('feedback-text').value;
+            if(!text) return;
+            db.collection('global_feedback').add({
+                type, message: text, uid: currentUser.uid, userName: currentUser.displayName, timestamp: firebase.firestore.FieldValue.serverTimestamp()
+            }).then(() => { alert("Grazie!"); closeModal('modal-feedback'); });
+        }
+
+        // Funzione Placeholders per il resto caricamento dati
+        function loadTripData() {
+            const tripRef = db.collection('trips').doc(currentTripId);
+            // Chat
+            unsubscribeListeners.push(tripRef.collection('chat').orderBy('timestamp').onSnapshot(snap => {
+                const div = document.getElementById('chat-messages');
+                div.innerHTML = "";
+                snap.forEach(doc => {
+                    const d = doc.data();
+                    const isMe = d.uid === currentUser.uid;
+                    div.innerHTML += `<div class="flex flex-col mb-2 ${isMe ? 'items-end' : 'items-start'}">
+                        <div class="px-3 py-1.5 rounded-lg max-w-[80%] text-sm shadow-sm ${isMe ? 'bg-chatMe rounded-tr-none' : 'bg-white rounded-tl-none'}">
+                            ${!isMe ? `<div class="text-[10px] font-bold text-accent">${d.name}</div>` : ''} ${d.text}
+                        </div>
+                    </div>`;
+                });
+                div.scrollTop = div.scrollHeight;
+            }));
+            // Itinerario
+            unsubscribeListeners.push(tripRef.collection('itinerary').onSnapshot(snap => {
+                const list = document.getElementById('itinerary-list'); list.innerHTML = "";
+                snap.forEach(d => {
+                    const data = d.data();
+                    list.innerHTML += `<div class="bg-white p-4 rounded-xl border relative shadow-sm">
+                        <h4 class="font-bold">${data.title}</h4><p class="text-xs text-slate-500">${data.date} ${data.time}</p>
+                        <button onclick="deleteSubItem('itinerary','${d.id}')" class="absolute top-2 right-2 text-slate-300"><i class="fa-solid fa-trash"></i></button>
+                    </div>`;
+                });
+            }));
+        }
+
+        // Inizializzazione Mappa Semplice
+        function initMap() {
+            if (map) map.remove();
+            map = L.map('map-container').setView([41.9, 12.5], 10);
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+        }
+    </script>
+
+    <script src='https://cdn.jotfor.ms/agent/embedjs/019bbeaacdde71cabd921eb3e81723594430/embed.js'></script>
+</body>
+</html>
